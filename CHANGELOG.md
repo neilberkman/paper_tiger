@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.2.1] - 2026-06-10
+
+### Fixed
+
+- Hackney constraint loosened from `~> 4.0` to `~> 1.17 or ~> 4.0` so PaperTiger installs
+  alongside apps that depend on hackney 1.x (tzdata, sentry 11, swoosh, etc.). The optional
+  `PaperTiger.StripityStripeHackney` adapter still requires hackney 4.x at runtime when used.
+
 ## [1.2.0] - 2026-06-10
 
 ### Added
