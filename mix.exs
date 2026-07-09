@@ -72,8 +72,11 @@ defmodule PaperTiger.MixProject do
       {:jason, "~> 1.4"},
 
       # Optional: hackney for stripity_stripe sandbox integration
-      # Users of PaperTiger.StripityStripeHackney must have hackney available
-      {:hackney, "~> 1.17 or ~> 4.0", optional: true},
+      # Users of PaperTiger.StripityStripeHackney must have hackney available.
+      # Floor is 1.24: the least-vulnerable 1.x release (SSRF fixed in 1.21.0,
+      # pool leak in 1.24.0). Four advisories affecting all of 1.x were only
+      # ever fixed in 4.0.1 — prefer hackney 4.x when your dep tree allows it.
+      {:hackney, "~> 1.24 or ~> 4.0", optional: true},
 
       # Testing/dev
       {:bypass, "~> 2.1", only: :test},

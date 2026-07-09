@@ -48,6 +48,15 @@ defmodule PaperTiger.StripityStripeHackney do
           # LiveView's Stripe calls use the same sandbox!
         end
       end
+
+  ## Security Note
+
+  This adapter is a thin passthrough over `:hackney.request/5` and works on both the
+  hackney 1.x and 4.x lines. PaperTiger accepts `~> 1.24 or ~> 4.0` so it can coexist
+  with dependency trees pinned to hackney 1.x by other packages, but be aware that four
+  security advisories affecting every hackney release before 4.0.1 (including
+  CVE-2026-47071, high severity) were never patched on the 1.x line. Prefer hackney 4.x
+  whenever your dependency tree allows it.
   """
 
   @compile {:no_warn_undefined, :hackney}

@@ -9,6 +9,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [1.2.2] - 2026-07-08
 
+### Security
+
+- Hackney floor raised from `~> 1.17` to `~> 1.24` (constraint is now
+  `~> 1.24 or ~> 4.0`). hackney 1.24.0 is the least-vulnerable 1.x release — it includes
+  the SSRF fix (1.21.0) and the connection-pool fix (1.24.0) — but four advisories
+  affecting every release before 4.0.1 (CVE-2026-47071 high; CVE-2026-47075 and
+  CVE-2026-47076 medium; CVE-2026-47069 low) were never patched on the 1.x line. The 1.x
+  branch exists only so PaperTiger can coexist with dependency trees pinned to hackney 1.x
+  by other packages; prefer hackney 4.x whenever your tree allows it.
+
 ### Fixed
 
 - Corrected the 1.2.1 release notes: the `PaperTiger.StripityStripeHackney` adapter does

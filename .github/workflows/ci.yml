@@ -82,7 +82,7 @@ jobs:
           otp-version: '27.3.4.14'
           elixir-version: '1.20.2'
 
-      # The main suite can never exercise the hackney ~> 1.17 branch because
+      # The main suite can never exercise the hackney ~> 1.24 branch because
       # the test-only stripity_stripe dep forces hackney 4.x resolution. This
       # standalone project pins hackney 1.x and smoke-tests the adapter.
       - name: Install dependencies
