@@ -132,6 +132,9 @@ defmodule PaperTiger.MixProject do
       main: "readme",
       source_ref: "v#{@version}",
       source_url: @url,
+      # PaperTiger.Port is internal (@moduledoc false) but mentioned in the
+      # changelog; don't autolink references to it.
+      skip_code_autolink_to: &String.match?(&1, ~r/^PaperTiger\.Port(\..*)?$/),
       extras: [
         "README.md",
         "CHANGELOG.md",

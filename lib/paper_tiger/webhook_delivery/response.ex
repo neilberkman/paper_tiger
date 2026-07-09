@@ -1,6 +1,6 @@
 defmodule PaperTiger.WebhookDelivery.Response do
   @moduledoc """
-  The successful result of a `PaperTiger.WebhookDelivery.Adapter.deliver/1`
+  The successful result of a `c:PaperTiger.WebhookDelivery.Adapter.deliver/1`
   call.
 
   Returned inside `{:ok, %Response{}}` to signal the webhook was either
