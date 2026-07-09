@@ -136,7 +136,10 @@ defmodule PaperTiger.PortTest do
 
     dead_owner = spawn(fn -> :ok end)
     ref = Process.monitor(dead_owner)
-    assert_receive {:DOWN, ^ref, :process, ^dead_owner, :normal}
+    # Reason is :normal or :noproc depending on whether the process exited
+    # before the monitor was established — either way it's dead, which is
+    # all this test needs.
+    assert_receive {:DOWN, ^ref, :process, ^dead_owner, _reason}
 
     assert {:error, _reason} =
              PaperTiger.Port.take_reserved_socket(reservation.pid, reservation.port, [], dead_owner)
