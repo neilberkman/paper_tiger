@@ -95,6 +95,21 @@ jobs:
         env:
           PAPER_TIGER_START: 'true'
 
+  # Stable required-status-check for branch protection: matrix job names
+  # embed version pins and change on every bump, so the ruleset requires
+  # this aggregate instead.
+  ci-green:
+    name: CI Green
+    runs-on: ubuntu-latest
+    needs: [quality, hackney-1x-compat]
+    if: always()
+
+    steps:
+      - name: Verify required jobs succeeded
+        run: |
+          test "${{ needs.quality.result }}" = "success"
+          test "${{ needs['hackney-1x-compat'].result }}" = "success"
+
   contract-validation:
     name: Contract Validation (Stripe API)
     runs-on: ubuntu-latest
