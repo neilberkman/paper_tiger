@@ -1,0 +1,4 @@
+# No committed lockfile: each run should resolve the latest hackney 1.x.
+mix.lock
+deps/
+_build/

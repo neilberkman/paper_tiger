@@ -7,6 +7,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.2.2] - 2026-07-08
+
+### Fixed
+
+- Corrected the 1.2.1 release notes: the `PaperTiger.StripityStripeHackney` adapter does
+  not require hackney 4.x at runtime — it is a thin passthrough over `:hackney.request/5`
+  and works on either line, now verified in CI by a standalone smoke test that resolves
+  hackney 1.x and drives the adapter end-to-end (`integration/hackney_1x_smoke`). Note that
+  stripity_stripe 3.x itself still requires hackney 4.x, so combining it with
+  hackney-1.x-only packages remains unresolvable regardless of PaperTiger's constraint.
+
+### Changed
+
+- Development/CI lockfile refreshed (bandit 1.12, plug 1.20, req 0.6, hackney 4.5, and
+  dev/test tooling); published version requirements in `mix.exs` are unchanged. CI now
+  tests Elixir 1.18/1.19/1.20 at their latest patch releases.
+
 ## [1.2.1] - 2026-06-10
 
 ### Fixed

@@ -19,8 +19,8 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        otp: ['27.0']
-        elixir: ['1.18.0', '1.20']
+        otp: ['27.3.4.14']
+        elixir: ['1.18.4', '1.19.5', '1.20.2']
 
     steps:
       - name: Checkout code
@@ -68,14 +68,41 @@ jobs:
       - name: Run tests
         run: mix test --warnings-as-errors
 
+  hackney-1x-compat:
+    name: Hackney 1.x Compatibility
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Elixir
+        uses: erlef/setup-beam@v1
+        with:
+          otp-version: '27.3.4.14'
+          elixir-version: '1.20.2'
+
+      # The main suite can never exercise the hackney ~> 1.17 branch because
+      # the test-only stripity_stripe dep forces hackney 4.x resolution. This
+      # standalone project pins hackney 1.x and smoke-tests the adapter.
+      - name: Install dependencies
+        run: mix deps.get
+        working-directory: integration/hackney_1x_smoke
+
+      - name: Run hackney 1.x smoke test
+        run: mix run smoke.exs
+        working-directory: integration/hackney_1x_smoke
+        env:
+          PAPER_TIGER_START: 'true'
+
   contract-validation:
     name: Contract Validation (Stripe API)
     runs-on: ubuntu-latest
     if: ${{ github.event_name == 'workflow_dispatch' && inputs.run_contract_validation }}
     strategy:
       matrix:
-        otp: ['27.0']
-        elixir: ['1.18.0', '1.20']
+        otp: ['27.3.4.14']
+        elixir: ['1.18.4', '1.20.2']
 
     steps:
       - name: Checkout code
