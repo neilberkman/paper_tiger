@@ -6,8 +6,8 @@
 
 A stateful mock Stripe server for testing.
 
-Create a customer and it is still there on the next request. Run one container
-per test, per suite, or per CI job, and nothing is shared between them.
+Run one container per test, per suite, or per CI job. Nothing is shared between
+them.
 
 ```bash
 docker run -p 12111:12111 ghcr.io/neilberkman/paper_tiger
@@ -22,9 +22,10 @@ c = stripe.Customer.create(email="dev@example.com")
 stripe.Customer.retrieve(c.id)        # still there
 ```
 
-It speaks HTTP, so every Stripe SDK works unchanged. Writing Elixir? Add
-`{:paper_tiger, "~> 1.0"}` and skip the container entirely: it runs in the same
-BEAM, with no network hop and a separate namespace per test.
+Any Stripe SDK works by pointing its API base at the container.
+
+On Elixir, add `{:paper_tiger, "~> 1.0"}` instead and skip the container. It
+runs in the same BEAM, with a separate namespace per test.
 
 Full setup for both paths is under [Installation](#installation).
 
@@ -41,7 +42,7 @@ Full setup for both paths is under [Installation](#installation).
 | **Runs offline** | yes | yes | no | yes | yes |
 | **License** | MIT | MIT | proprietary | Hippocratic 2.1 | GPL-3.0 |
 
-Every limit attributed to Stripe above is linked to Stripe's own documentation.
+Stripe's limits above link to Stripe's docs.
 
 ## Rationale
 
@@ -109,9 +110,8 @@ definition can be repointed at PaperTiger without changing anything else.
 
 ### Node, via Testcontainers
 
-If your suite already uses [Testcontainers](https://node.testcontainers.org), the
-[`@neilberkman/papertiger-testcontainers`](clients/testcontainers-node) module starts and stops the container
-per test and gives you the clock controls directly:
+[`@neilberkman/papertiger-testcontainers`](clients/testcontainers-node) handles
+container lifecycle and exposes the clock controls:
 
 ```ts
 import { PaperTigerContainer } from "@neilberkman/papertiger-testcontainers";
@@ -127,9 +127,8 @@ definitions, and the HTTP control API.
 ## Standalone Server
 
 The container runs the same server the Elixir library runs in-process. Nothing
-is persisted to disk: each container is an isolated store that starts empty and
-disappears when the container does, which is what makes it safe to run one per
-CI job or per pull request.
+is written to disk. Each container starts empty and dies with the container, so
+one per CI job or per pull request costs nothing to clean up.
 
 ### Configuration
 
