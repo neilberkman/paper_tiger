@@ -2,7 +2,7 @@
 
 ## Introduction
 
-[![Run in Livebook](https://livebook.dev/badge/v1/blue.svg)](https://livebook.dev/run?url=https://github.com/EnaiaInc/paper_tiger/blob/main/examples/getting_started.livemd)
+[![Run in Livebook](https://livebook.dev/badge/v1/blue.svg)](https://livebook.dev/run?url=https://github.com/neilberkman/paper_tiger/blob/main/examples/getting_started.livemd)
 
 This LiveBook demonstrates how to use PaperTiger, a stateful mock Stripe server for testing Elixir applications. You'll learn how to:
 
@@ -283,8 +283,8 @@ Now that you've explored the basics, try:
 
 For more examples, check out:
 
-* [PaperTiger README](https://github.com/EnaiaInc/paper_tiger)
-* [Contract Testing Guide](https://github.com/EnaiaInc/paper_tiger#contract-testing)
+* [PaperTiger README](https://github.com/neilberkman/paper_tiger)
+* [Contract Testing Guide](https://github.com/neilberkman/paper_tiger#contract-testing)
 * [Stripe API Documentation](https://stripe.com/docs/api)
 
 ## Summary

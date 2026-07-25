@@ -1,16 +1,40 @@
 [![Hex.pm](https://img.shields.io/hexpm/v/paper_tiger)](https://hex.pm/packages/paper_tiger)
 [![Hexdocs.pm](https://img.shields.io/badge/docs-hexdocs.pm-purple)](https://hexdocs.pm/paper_tiger)
-[![Github.com](https://github.com/EnaiaInc/paper_tiger/actions/workflows/ci.yml/badge.svg)](https://github.com/EnaiaInc/paper_tiger/actions)
+[![Github.com](https://github.com/neilberkman/paper_tiger/actions/workflows/ci.yml/badge.svg)](https://github.com/neilberkman/paper_tiger/actions)
 
 # PaperTiger
 
-A stateful mock Stripe server for testing Elixir applications.
+A stateful mock Stripe server for testing.
+
+**In Elixir**, add the dependency. PaperTiger runs in-process on ETS, so there
+is no network hop, no container to manage, and each test gets its own isolated
+namespace:
+
+```elixir
+{:paper_tiger, "~> 1.0"}
+```
+
+**In any other language**, run the container and point your Stripe SDK at it.
+PaperTiger speaks HTTP, so the SDK does not know the difference:
+
+```bash
+docker run -p 12111:12111 ghcr.io/neilberkman/paper_tiger
+```
+
+Full setup for both paths is under [Installation](#installation).
 
 ## Rationale
 
 Testing payment processing requires simulating complex Stripe workflows: subscription billing cycles, invoice finalization, webhook delivery, idempotency handling. Using real Stripe test accounts introduces external dependencies, network latency, rate limits, and non-deterministic test data. Stubbing individual Stripe API calls leads to brittle tests that break when Stripe's API evolves.
 
-PaperTiger solves this by providing a complete, stateful implementation of the Stripe API that runs in-process. Tests execute in milliseconds instead of seconds, work offline, and produce deterministic results. The dual-mode contract testing system validates that PaperTiger's behavior matches production Stripe, catching API drift automatically.
+Stripe's own testing surfaces have hard limits that a mock does not: an account
+can have [up to five sandboxes](https://docs.stripe.com/sandboxes/dashboard/manage),
+sandboxes are capped at [25 operations per second](https://docs.stripe.com/rate-limits),
+and a [test clock](https://docs.stripe.com/billing/testing/test-clocks/api-advanced-usage)
+holds at most three customers, three subscriptions, and ten quotes while
+advancing at most two billing intervals at a time.
+
+PaperTiger solves this by providing a complete, stateful implementation of the Stripe API. Tests execute in milliseconds instead of seconds, work offline, and produce deterministic results. The dual-mode contract testing system validates that PaperTiger's behavior matches production Stripe, catching API drift automatically.
 
 ## Philosophy
 
@@ -20,7 +44,7 @@ PaperTiger solves this by providing a complete, stateful implementation of the S
 
 **Time control**: Subscription billing, trial periods, and webhook retry logic depend on time progression. PaperTiger provides accelerated and manual clock modes for testing time-dependent behavior without waiting.
 
-**Elixir-native**: Built with ETS, GenServers, and Plug. No external databases or runtimes required.
+**Elixir-native**: Built with ETS, GenServers, and Plug. No external databases or runtimes required. Elixir callers get the server in the same BEAM, which is strictly faster than talking to a container; every other language gets that same server over HTTP.
 
 ## Features
 
@@ -37,6 +61,8 @@ PaperTiger solves this by providing a complete, stateful implementation of the S
 
 ## Installation
 
+### Elixir
+
 Add `paper_tiger` to your dependencies in `mix.exs`:
 
 ```elixir
@@ -47,9 +73,134 @@ def deps do
 end
 ```
 
+### Any other language
+
+PaperTiger speaks HTTP, so it works with any Stripe SDK. Run it as a container
+and point the SDK's API base at it:
+
+```bash
+docker run -p 12111:12111 ghcr.io/neilberkman/paper_tiger
+```
+
+```python
+import stripe
+stripe.api_key = "sk_test_anything"   # any non-empty key is accepted
+stripe.api_base = "http://localhost:12111"
+
+c = stripe.Customer.create(email="dev@example.com")
+stripe.Customer.retrieve(c.id)        # the customer is still there
+```
+
+12111 is stripe-mock's default port, so an existing stripe-mock service
+definition can be repointed at PaperTiger without changing anything else.
+
+See [Standalone Server](#standalone-server) for configuration, CI service
+definitions, and the HTTP control API.
+
+## Standalone Server
+
+The container runs the same server the Elixir library runs in-process. Nothing
+is persisted to disk: each container is an isolated store that starts empty and
+disappears when the container does, which is what makes it safe to run one per
+CI job or per pull request.
+
+### Configuration
+
+All settings are environment variables. None are required.
+
+| Variable | Default | Meaning |
+| --- | --- | --- |
+| `PAPER_TIGER_PORT` | `12111` | Listen port. `PORT` is also honored, for PaaS runtimes that inject it. |
+| `PAPER_TIGER_CLOCK_MODE` | `real` | `real`, `accelerated`, or `manual`. |
+| `PAPER_TIGER_CLOCK_MULTIPLIER` | `1` | Seconds of simulated time per real second, in `accelerated` mode. |
+| `PAPER_TIGER_BILLING_ENGINE` | `false` | Advance subscriptions and finalize invoices on a timer. Leave off when driving the clock yourself. |
+| `PAPER_TIGER_LOG_LEVEL` | `info` | Standard Elixir log levels. |
+
+`GET /health` responds `{"status":"ok","service":"paper_tiger"}` without an
+Authorization header, for container and load balancer probes. Every `/v1/*` path
+requires one, as real Stripe does, though any non-empty key is accepted.
+
+### Time travel over HTTP
+
+Stripe's test clocks cap at three customers, three subscriptions, and ten quotes
+per clock, and advance at most two billing intervals at a time. PaperTiger's
+clock has no such limits and is driven over HTTP:
+
+```bash
+docker run -p 12111:12111 -e PAPER_TIGER_CLOCK_MODE=manual ghcr.io/neilberkman/paper_tiger
+```
+
+```bash
+curl -X POST http://localhost:12111/_config/time/advance \
+  -u sk_test_anything: -d "days=45"
+#=> {"now":1791553401,"success":true}
+```
+
+Both form-encoded and JSON bodies are accepted. Other control endpoints:
+
+| Endpoint | Purpose |
+| --- | --- |
+| `POST /_config/time/advance` | Advance the clock by `seconds` or `days`. |
+| `POST /_config/webhooks` | Register a webhook endpoint and signing secret. |
+| `DELETE /_config/data` | Flush all resources. |
+
+### GitHub Actions
+
+```yaml
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    services:
+      stripe:
+        image: ghcr.io/neilberkman/paper_tiger
+        ports:
+          - 12111:12111
+        options: >-
+          --health-cmd "curl -fsS http://127.0.0.1:12111/health"
+          --health-interval 10s
+          --health-retries 5
+    env:
+      STRIPE_API_BASE: http://localhost:12111
+      STRIPE_API_KEY: sk_test_ci
+```
+
+Because each job gets its own container, parallel jobs cannot collide with each
+other the way they do when sharing a Stripe sandbox, and there is no rate limit
+to back off from.
+
+### Docker Compose
+
+```yaml
+services:
+  stripe:
+    image: ghcr.io/neilberkman/paper_tiger
+    ports:
+      - "12111:12111"
+    environment:
+      PAPER_TIGER_CLOCK_MODE: manual
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://127.0.0.1:12111/health"]
+      interval: 10s
+
+  app:
+    build: .
+    depends_on:
+      stripe:
+        condition: service_healthy
+    environment:
+      STRIPE_API_BASE: http://stripe:12111
+      STRIPE_API_KEY: sk_test_local
+```
+
+### Building the image yourself
+
+```bash
+docker build -t paper_tiger .
+```
+
 ## Quick Start
 
-[![Run in Livebook](https://livebook.dev/badge/v1/blue.svg)](https://livebook.dev/run?url=https://github.com/EnaiaInc/paper_tiger/blob/main/examples/getting_started.livemd)
+[![Run in Livebook](https://livebook.dev/badge/v1/blue.svg)](https://livebook.dev/run?url=https://github.com/neilberkman/paper_tiger/blob/main/examples/getting_started.livemd)
 
 Try the [interactive Livebook tutorial](examples/getting_started.livemd) for a hands-on introduction!
 
@@ -772,7 +923,7 @@ PaperTiger provides comprehensive coverage of core Stripe resources with full CR
 
 **Checkout & Events**: CheckoutSessions, WebhookEndpoints, Events, Reviews, Topups
 
-> **Note**: PaperTiger implements Stripe API v1 resources. Some v2-only resources (e.g., v2 billing features) are not yet supported. Check the [issues page](https://github.com/EnaiaInc/paper_tiger/issues) for planned additions or open a feature request.
+> **Note**: PaperTiger implements Stripe API v1 resources. Some v2-only resources (e.g., v2 billing features) are not yet supported. Check the [issues page](https://github.com/neilberkman/paper_tiger/issues) for planned additions or open a feature request.
 
 ### Connect Semantics
 

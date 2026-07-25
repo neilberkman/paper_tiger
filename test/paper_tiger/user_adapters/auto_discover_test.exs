@@ -26,7 +26,7 @@ defmodule PaperTiger.UserAdapters.AutoDiscoverTest do
     end
   end
 
-  describe "get_user_info/2 with separate emails table (like Enaia)" do
+  describe "get_user_info/2 with separate emails table" do
     defmodule EmailsTableRepo do
       def query("SELECT EXISTS" <> _, ["users"]), do: {:ok, %{rows: [[true]]}}
       def query("SELECT EXISTS" <> _, _), do: {:ok, %{rows: [[false]]}}

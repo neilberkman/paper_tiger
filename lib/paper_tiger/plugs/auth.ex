@@ -7,6 +7,12 @@ defmodule PaperTiger.Plugs.Auth do
   - **Lenient (default)** - Accepts any non-empty Authorization header
   - **Strict** - Validates key format (sk_test_*, sk_live_*)
 
+  ## Unauthenticated Paths
+
+  `/health` and the browser-facing Checkout, Payment Link, and Billing Portal
+  paths are served without an Authorization header, matching the fact that a
+  real browser never carries one.
+
   ## Usage
 
       # In router
@@ -57,6 +63,9 @@ defmodule PaperTiger.Plugs.Auth do
 
   ## Private Functions
 
+  # `/health` is not a Stripe endpoint, so gating it behind an API key buys no
+  # fidelity and costs container runtimes and load balancers their probe.
+  defp public_browser_path?("/health"), do: true
   defp public_browser_path?("/checkout/" <> _rest), do: true
   defp public_browser_path?("/payment_links/" <> _rest), do: true
   defp public_browser_path?("/billing_portal/sessions/" <> _rest), do: true

@@ -84,7 +84,7 @@ defmodule PaperTiger.UserAdapters.AutoDiscover do
       email = user_data["email_address"] ->
         {:ok, email}
 
-      # Follow FK to emails table (like Enaia)
+      # Follow FK to a separate emails table
       email_id = user_data["primary_email_id"] ->
         case fetch_email_from_table(repo, email_id) do
           {:ok, email} -> {:ok, email}

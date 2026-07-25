@@ -167,8 +167,11 @@ defmodule PaperTiger.Router do
   end
 
   post "/_config/time/advance" do
-    case conn.params do
-      %{seconds: seconds} when is_integer(seconds) ->
+    # Accepts both a JSON body (integer values) and form-encoded input (string
+    # values). Form encoding is what every Stripe SDK emits, so rejecting it
+    # would make time travel reachable only from hand-written JSON requests.
+    case {integer_param(conn.params, :seconds), integer_param(conn.params, :days)} do
+      {{:ok, seconds}, _days} ->
         PaperTiger.advance_time(seconds)
 
         send_resp(
@@ -177,7 +180,7 @@ defmodule PaperTiger.Router do
           Jason.encode!(%{now: PaperTiger.now(), success: true})
         )
 
-      %{days: days} when is_integer(days) ->
+      {_seconds, {:ok, days}} ->
         PaperTiger.advance_time(days: days)
 
         send_resp(
@@ -186,7 +189,7 @@ defmodule PaperTiger.Router do
           Jason.encode!(%{now: PaperTiger.now(), success: true})
         )
 
-      _invalid ->
+      {:error, :error} ->
         send_resp(
           conn,
           400,
@@ -500,5 +503,25 @@ defmodule PaperTiger.Router do
         }
       })
     )
+  end
+
+  ## Private Functions
+
+  # Reads a param that may arrive as an integer (JSON body) or a string (form
+  # encoding, which is what the Stripe SDKs send).
+  defp integer_param(params, key) do
+    case Map.get(params, key) do
+      value when is_integer(value) ->
+        {:ok, value}
+
+      value when is_binary(value) ->
+        case Integer.parse(value) do
+          {parsed, ""} -> {:ok, parsed}
+          _otherwise -> :error
+        end
+
+      _missing ->
+        :error
+    end
   end
 end

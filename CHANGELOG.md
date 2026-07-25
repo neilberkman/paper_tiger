@@ -7,6 +7,29 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- Standalone server distribution. `mix release` now produces a `paper_tiger`
+  release, and a `Dockerfile` builds a container image that serves the same
+  Stripe-compatible API the library serves in-process. Any Stripe SDK in any
+  language can point its API base at it; no Elixir required on the caller's
+  side. Defaults to port 12111, matching stripe-mock, so an existing
+  stripe-mock service definition can be repointed without further changes.
+- Standalone server configuration via environment variables:
+  `PAPER_TIGER_PORT` (and `PORT`), `PAPER_TIGER_CLOCK_MODE`,
+  `PAPER_TIGER_CLOCK_MULTIPLIER`, `PAPER_TIGER_BILLING_ENGINE`, and
+  `PAPER_TIGER_LOG_LEVEL`.
+
+### Fixed
+
+- `POST /_config/time/advance` now accepts form-encoded bodies
+  (`seconds=86400`) in addition to JSON. Form encoding is what every Stripe SDK
+  emits, so time travel was previously reachable only from hand-written JSON
+  requests.
+- `GET /health` no longer requires an Authorization header. It is not a Stripe
+  endpoint, so gating it bought no fidelity while denying container runtimes and
+  load balancers their probe.
+
 ## [1.2.2] - 2026-07-08
 
 ### Security

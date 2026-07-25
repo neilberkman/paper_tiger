@@ -3,8 +3,8 @@ defmodule PaperTiger.MixProject do
   use Mix.Project
 
   @version "1.2.2"
-  @url "https://github.com/EnaiaInc/paper_tiger"
-  @maintainers ["Enaia Inc"]
+  @url "https://github.com/neilberkman/paper_tiger"
+  @maintainers ["Neil Berkman"]
 
   def project do
     [
@@ -16,9 +16,12 @@ defmodule PaperTiger.MixProject do
       deps: deps(),
       elixirc_paths: elixirc_paths(Mix.env()),
 
+      # Standalone server release (see Dockerfile)
+      releases: releases(),
+
       # Hex package
       package: package(),
-      description: "A stateful mock Stripe server for testing Elixir applications",
+      description: "A stateful mock Stripe server for testing",
       source_url: @url,
       homepage_url: @url,
 
@@ -51,6 +54,20 @@ defmodule PaperTiger.MixProject do
 
   defp elixirc_paths(:test), do: ["lib", "test/support"]
   defp elixirc_paths(_), do: ["lib"]
+
+  # Release used by the container image. PaperTiger is primarily consumed as a
+  # library, so this exists purely to let non-Elixir callers run the same server
+  # over HTTP. `PaperTiger.Application.should_start?/0` returns true whenever
+  # Mix is absent, which is exactly the release case, so no extra config is
+  # needed to make the HTTP listener come up.
+  defp releases do
+    [
+      paper_tiger: [
+        include_executables_for: [:unix],
+        applications: [runtime_tools: :permanent]
+      ]
+    ]
+  end
 
   def application do
     [

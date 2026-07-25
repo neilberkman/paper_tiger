@@ -1,0 +1,16 @@
+_build
+deps
+doc
+.git
+.github
+.elixir_ls
+.elixir-tools
+cover
+tmp
+erl_crash.dump
+*.ez
+node_modules
+integration
+test
+examples
+docs
