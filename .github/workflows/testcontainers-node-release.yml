@@ -1,0 +1,65 @@
+name: Release @neilberkman/papertiger-testcontainers
+
+# Keyless publish to npm via OIDC Trusted Publishing. No NPM_TOKEN secret is
+# used: npm exchanges the GitHub OIDC token for a short-lived credential and
+# stamps provenance automatically. Requires a Trusted Publisher configured on
+# npmjs.com for @neilberkman/papertiger-testcontainers pointing at this repo and
+# this workflow file.
+#
+# Token-based publishing is on a deprecation clock anyway (npm is restricting
+# 2FA-bypassing tokens: account changes Aug 2026, direct publishing Jan 2027),
+# so OIDC is the only durable path.
+#
+# Trigger: push a tag like `testcontainers-node-v0.1.0`. The tag is namespaced
+# because `v*` tags in this repo belong to the Elixir package.
+
+on:
+  push:
+    tags: ["testcontainers-node-v*"]
+
+permissions:
+  contents: read
+  id-token: write # required for OIDC trusted publishing + provenance
+
+defaults:
+  run:
+    working-directory: clients/testcontainers-node
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          registry-url: "https://registry.npmjs.org"
+          cache: npm
+          cache-dependency-path: clients/testcontainers-node/package-lock.json
+
+      # OIDC trusted publishing needs npm >= 11.5.1. Pinned to the 11.x line:
+      # npm@12.0.0 ships a broken provenance publish (libnpmpublish cannot
+      # resolve sigstore), so npm@latest is not safe here.
+      - name: Upgrade npm
+        run: npm install -g npm@11
+
+      - run: npm ci
+
+      - name: Verify tag matches package version
+        env:
+          RELEASE_TAG: ${{ github.ref_name }}
+        run: node -e "const expected = 'testcontainers-node-v' + require('./package.json').version; if (process.env.RELEASE_TAG !== expected) { console.error('tag ' + process.env.RELEASE_TAG + ' does not match package ' + expected); process.exit(1); }"
+
+      - name: Typecheck
+        run: npx tsc --project tsconfig.build.json --noEmit
+
+      - name: Test against the published image
+        run: npm test
+
+      - name: Build
+        run: npm run build
+
+      - name: Publish (keyless OIDC + provenance)
+        run: npm publish --access public --provenance

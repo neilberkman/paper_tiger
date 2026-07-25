@@ -97,11 +97,11 @@ definition can be repointed at PaperTiger without changing anything else.
 ### Node, via Testcontainers
 
 If your suite already uses [Testcontainers](https://node.testcontainers.org), the
-[`@papertiger/testcontainers`](clients/testcontainers-node) module starts and stops the container
+[`@neilberkman/papertiger-testcontainers`](clients/testcontainers-node) module starts and stops the container
 per test and gives you the clock controls directly:
 
 ```ts
-import { PaperTigerContainer } from "@papertiger/testcontainers";
+import { PaperTigerContainer } from "@neilberkman/papertiger-testcontainers";
 
 const container = await new PaperTigerContainer().withClockMode("manual").start();
 // ...point the Stripe SDK at container.getApiBase()...

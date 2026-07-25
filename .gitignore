@@ -31,3 +31,7 @@ paper_tiger-*.tar
 node_modules/
 clients/**/build/
 clients/**/*.tgz
+
+# npm auth, never commit
+.npmrc
+clients/**/.npmrc

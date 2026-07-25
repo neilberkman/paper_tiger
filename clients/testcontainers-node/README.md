@@ -1,4 +1,4 @@
-# @papertiger/testcontainers
+# @neilberkman/papertiger-testcontainers
 
 A [Testcontainers](https://node.testcontainers.org) module for
 [PaperTiger](https://github.com/neilberkman/paper_tiger), a stateful mock Stripe server.
@@ -8,14 +8,14 @@ persists within a container, so a customer created in one request comes back in 
 nothing is shared between containers, so parallel jobs cannot collide.
 
 ```bash
-npm install @papertiger/testcontainers --save-dev
+npm install @neilberkman/papertiger-testcontainers --save-dev
 ```
 
 ## Usage
 
 ```ts
 import Stripe from "stripe";
-import { PaperTigerContainer } from "@papertiger/testcontainers";
+import { PaperTigerContainer } from "@neilberkman/papertiger-testcontainers";
 
 const container = await new PaperTigerContainer().start();
 

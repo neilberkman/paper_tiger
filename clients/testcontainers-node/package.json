@@ -1,5 +1,5 @@
 {
-  "name": "@papertiger/testcontainers",
+  "name": "@neilberkman/papertiger-testcontainers",
   "version": "0.1.0",
   "description": "Testcontainers module for PaperTiger, a stateful mock Stripe server",
   "main": "build/index.js",
