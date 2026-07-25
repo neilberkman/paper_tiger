@@ -94,6 +94,20 @@ stripe.Customer.retrieve(c.id)        # the customer is still there
 12111 is stripe-mock's default port, so an existing stripe-mock service
 definition can be repointed at PaperTiger without changing anything else.
 
+### Node, via Testcontainers
+
+If your suite already uses [Testcontainers](https://node.testcontainers.org), the
+[`@papertiger/testcontainers`](clients/testcontainers-node) module starts and stops the container
+per test and gives you the clock controls directly:
+
+```ts
+import { PaperTigerContainer } from "@papertiger/testcontainers";
+
+const container = await new PaperTigerContainer().withClockMode("manual").start();
+// ...point the Stripe SDK at container.getApiBase()...
+await container.advanceTime({ days: 45 });
+```
+
 See [Standalone Server](#standalone-server) for configuration, CI service
 definitions, and the HTTP control API.
 

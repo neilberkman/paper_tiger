@@ -26,3 +26,8 @@ paper_tiger-*.tar
 .direnv/
 .nix-hex/
 .nix-mix/
+
+# Node client packages under clients/
+node_modules/
+clients/**/build/
+clients/**/*.tgz

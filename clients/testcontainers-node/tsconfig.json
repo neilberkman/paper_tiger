@@ -1,0 +1,19 @@
+{
+  "compilerOptions": {
+    "lib": ["ES2023"],
+    "target": "ES2023",
+    "types": ["node", "vitest/globals"],
+    "module": "nodenext",
+    "moduleResolution": "nodenext",
+    "rootDir": "src",
+    "outDir": "build",
+    "declaration": true,
+    "strict": true,
+    "esModuleInterop": true,
+    "skipLibCheck": true,
+    "forceConsistentCasingInFileNames": true,
+    "noImplicitOverride": true
+  },
+  "include": ["src"],
+  "exclude": ["build"]
+}

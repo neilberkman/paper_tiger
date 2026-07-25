@@ -1,0 +1,39 @@
+name: Testcontainers (Node)
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - clients/testcontainers-node/**
+      - .github/workflows/testcontainers-node.yml
+  pull_request:
+    paths:
+      - clients/testcontainers-node/**
+      - .github/workflows/testcontainers-node.yml
+
+defaults:
+  run:
+    working-directory: clients/testcontainers-node
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: clients/testcontainers-node/package-lock.json
+
+      - run: npm ci
+
+      - run: npx tsc --project tsconfig.build.json --noEmit
+
+      # Exercises the module against the published image, so a server change that
+      # breaks the client contract fails here rather than in someone's suite.
+      - run: npm test
+
+      - run: npm pack --dry-run
