@@ -1690,16 +1690,21 @@ defmodule PaperTiger.Resources.InvoiceTest do
       lines = invoice["lines"]["data"]
       assert is_list(lines)
 
-      regular_lines = Enum.reject(lines, & &1["proration"])
-      proration_lines = Enum.filter(lines, & &1["proration"])
+      # A preview WITH proposed changes quotes the immediate proration
+      # invoice: prorations only, no next-cycle lines. The subscription was
+      # just created, so the remaining-period ratio is ~1.0 (a clock tick may
+      # shave a cent — assert with slack, not equality).
+      assert Enum.all?(lines, & &1["proration"])
 
-      # Regular line: new item 5000 * 3 = 15000
-      assert length(regular_lines) == 1
-      assert hd(regular_lines)["amount"] == 15_000
-
-      # Proration lines: credit for old item, charge for new item
-      assert proration_lines != []
-      assert Enum.all?(proration_lines, & &1["proration"])
+      credit = Enum.find(lines, &(&1["amount"] < 0))
+      charge = Enum.find(lines, &(&1["amount"] > 0))
+      assert credit["price"]["id"] == ctx.price["id"]
+      assert charge["price"]["id"] == ctx.new_price["id"]
+      assert credit["amount"] >= -2_000 and credit["amount"] <= -1_990
+      assert charge["amount"] <= 15_000 and charge["amount"] >= 14_990
+      assert invoice["currency"] == "usd"
+      assert invoice["total"] == credit["amount"] + charge["amount"]
+      assert invoice["amount_due"] == invoice["total"]
     end
 
     test "returns 404 for non-existent subscription" do
@@ -1744,14 +1749,13 @@ defmodule PaperTiger.Resources.InvoiceTest do
       invoice = json_response(conn)
       lines = invoice["lines"]["data"]
 
-      regular_lines = Enum.reject(lines, & &1["proration"])
-      proration_lines = Enum.filter(lines, & &1["proration"])
-
-      # Regular line: existing price (2000) * 5 = 10000
-      assert hd(regular_lines)["amount"] == 10_000
-
-      # Proration lines for quantity change (1 -> 5)
-      assert proration_lines != []
+      # Prorations only: credit the old quantity's remainder, charge the new
+      # quantity's remainder, same price aggregated on both sides.
+      assert Enum.all?(lines, & &1["proration"])
+      credit = Enum.find(lines, &(&1["amount"] < 0))
+      charge = Enum.find(lines, &(&1["amount"] > 0))
+      assert credit["amount"] >= -2_000 and credit["amount"] <= -1_990
+      assert charge["amount"] <= 10_000 and charge["amount"] >= 9_990
     end
 
     test "returns 400 for invalid quantity value", ctx do
@@ -1794,14 +1798,16 @@ defmodule PaperTiger.Resources.InvoiceTest do
 
       assert conn.status == 200
       invoice = json_response(conn)
+      lines = invoice["lines"]["data"]
 
-      regular_lines =
-        invoice["lines"]["data"]
-        |> Enum.reject(& &1["proration"])
-
-      # Updated item should be quantity 2 and unchanged sibling should remain.
-      assert length(regular_lines) == 2
-      assert Enum.reduce(regular_lines, 0, fn line, acc -> acc + line["amount"] end) == 6000
+      # The sibling item survives the by-id update, so the aggregate for the
+      # shared price goes 2 -> 3 units: credit ~4000, charge ~6000, all
+      # prorated at ~1.0 on a fresh subscription.
+      assert Enum.all?(lines, & &1["proration"])
+      credit = Enum.find(lines, &(&1["amount"] < 0))
+      charge = Enum.find(lines, &(&1["amount"] > 0))
+      assert credit["amount"] >= -4_000 and credit["amount"] <= -3_980
+      assert charge["amount"] <= 6_000 and charge["amount"] >= 5_980
     end
   end
 

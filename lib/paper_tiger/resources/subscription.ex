@@ -41,6 +41,7 @@ defmodule PaperTiger.Resources.Subscription do
 
   alias PaperTiger.AutomaticTax
   alias PaperTiger.Discounts
+  alias PaperTiger.Proration
   alias PaperTiger.Search
   alias PaperTiger.Store.Customers
   alias PaperTiger.Store.InvoiceItems
@@ -161,7 +162,7 @@ defmodule PaperTiger.Resources.Subscription do
          :ok <- apply_subscription_item_operations(item_operations) do
       items_after_update = SubscriptionItems.find_by_subscription(id)
       billable_items_changed = billable_items_changed?(existing_items, items_after_update)
-      updated = maybe_create_proration_invoice(updated, conn.params, billable_items_changed)
+      updated = maybe_create_proration_invoice(updated, conn.params, billable_items_changed, existing_items)
 
       updated_with_items = load_subscription_items(updated)
       previous_attributes = diff_attributes(existing, updated_with_items)
@@ -774,11 +775,11 @@ defmodule PaperTiger.Resources.Subscription do
 
   # When proration_behavior is set and items changed, Stripe creates a proration
   # invoice and sets latest_invoice on the subscription response.
-  defp maybe_create_proration_invoice(subscription, params, billable_items_changed?) do
+  defp maybe_create_proration_invoice(subscription, params, billable_items_changed?, pre_update_items) do
     proration_behavior = Map.get(params, :proration_behavior)
 
     if should_create_proration_invoice?(billable_items_changed?, proration_behavior),
-      do: create_proration_invoice(subscription, params),
+      do: create_proration_invoice(subscription, params, pre_update_items),
       else: subscription
   end
 
@@ -786,13 +787,27 @@ defmodule PaperTiger.Resources.Subscription do
     billable_items_changed? and proration_behavior in ["always_invoice", "create_prorations"]
   end
 
-  defp create_proration_invoice(subscription, params) do
+  # The lines come from PaperTiger.Proration — the same arithmetic the
+  # create_preview quote uses — so what was quoted is what is charged: credit
+  # the removed items' unused remainder, charge the added items' remainder,
+  # scaled by how much of the current period is left. A net credit clamps the
+  # charge to zero rather than inventing a negative payment.
+  defp create_proration_invoice(subscription, params, pre_update_items) do
     proration_behavior = Map.get(params, :proration_behavior)
     items = SubscriptionItems.find_by_subscription(subscription.id)
     now = PaperTiger.now()
     invoice_id = generate_id("in")
-    lines = Enum.map(items, &build_proration_invoice_line(&1, now, proration_behavior))
-    total = Enum.reduce(lines, 0, fn line, acc -> acc + line.amount end)
+    ratio = Proration.remaining_ratio(subscription, now)
+
+    lines =
+      Proration.lines(
+        Enum.map(pre_update_items, &normalize_proration_item/1),
+        Enum.map(items, &normalize_proration_item/1),
+        ratio,
+        now
+      )
+
+    total = Enum.reduce(lines, 0, fn line, acc -> acc + line.amount end) |> max(0)
     payment_credential = effective_payment_credential(subscription)
     auto_paid = proration_auto_paid?(subscription, payment_credential, proration_behavior)
     status = proration_invoice_status(proration_behavior, auto_paid)
@@ -813,31 +828,19 @@ defmodule PaperTiger.Resources.Subscription do
     persist_latest_invoice(subscription, invoice_id)
   end
 
-  defp build_proration_invoice_line(item, now, proration_behavior) do
+  # Store items embed the full price object; direct maps may carry a bare id.
+  defp normalize_proration_item(item) do
     price = item[:price]
-    quantity = item[:quantity] || 1
-    unit_amount = line_unit_amount(price)
-    amount = unit_amount * quantity
+    price_map = if is_map(price), do: price, else: %{}
+    price_id = price_map[:id] || price_map["id"] || (is_binary(price) && price) || nil
 
     %{
-      amount: amount,
-      currency: "usd",
-      description: "#{quantity} x (#{line_price_id(price)})",
-      id: generate_id("il"),
-      object: "line_item",
-      period: %{end: now + 30 * 86_400, start: now},
-      price: price,
-      proration: proration_behavior == "create_prorations",
-      quantity: quantity,
-      type: "subscription"
+      price_id: price_id,
+      product: price_map[:product],
+      quantity: item[:quantity] || 1,
+      unit_amount: price_map[:unit_amount] || 0
     }
   end
-
-  defp line_unit_amount(price) when is_map(price), do: price[:unit_amount] || 0
-  defp line_unit_amount(_price), do: 0
-
-  defp line_price_id(price) when is_map(price), do: price[:id]
-  defp line_price_id(_price), do: "unknown"
 
   defp proration_auto_paid?(subscription, payment_credential, proration_behavior) do
     proration_behavior == "always_invoice" and
@@ -869,7 +872,7 @@ defmodule PaperTiger.Resources.Subscription do
       amount_paid: if(auto_paid, do: total, else: 0),
       amount_remaining: if(auto_paid, do: 0, else: total),
       created: now,
-      currency: "usd",
+      currency: Proration.invoice_currency(lines),
       customer: subscription.customer,
       id: invoice_id,
       lines: %{data: lines, has_more: false, object: "list", url: "/v1/invoices/#{invoice_id}/lines"},

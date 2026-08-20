@@ -40,6 +40,7 @@ defmodule PaperTiger.Resources.Invoice do
 
   alias PaperTiger.ChaosCoordinator
   alias PaperTiger.CustomerBalance
+  alias PaperTiger.Proration
   alias PaperTiger.Search
   alias PaperTiger.Store.InvoiceItems
   alias PaperTiger.Store.Invoices
@@ -328,10 +329,11 @@ defmodule PaperTiger.Resources.Invoice do
            {:ok, subscription} <- Subscriptions.get(subscription_id) do
         sd = param_value(conn.params, :subscription_details) || %{}
         proposed_items = param_value(sd, :items) || %{}
+        has_changes = normalize_proposed_preview_items(proposed_items) != []
         existing = SubscriptionItems.find_by_subscription(subscription_id)
         existing_resolved = Enum.map(existing, &resolve_item_for_preview/1)
         merged = merge_preview_items(subscription_id, proposed_items)
-        invoice = build_preview_invoice(subscription, merged, existing_resolved)
+        invoice = build_preview_invoice(subscription, merged, existing_resolved, has_changes)
         json_response(conn, 200, invoice)
       else
         {:error, :invalid_quantity, field} ->
@@ -1276,63 +1278,47 @@ defmodule PaperTiger.Resources.Invoice do
     end
   end
 
-  defp aggregate_items_by_price(items) do
-    Enum.reduce(items, %{}, fn item, acc ->
-      price_id = item.price_id
-      quantity = item.quantity || 1
-      unit_amount = item.unit_amount || 0
-      amount = unit_amount * quantity
-
-      Map.update(
-        acc,
-        price_id,
-        %{amount: amount, product: item.product, quantity: quantity, unit_amount: unit_amount},
-        fn existing ->
-          %{
-            amount: existing.amount + amount,
-            product: existing.product || item.product,
-            quantity: existing.quantity + quantity,
-            unit_amount: existing.unit_amount
-          }
-        end
-      )
-    end)
-  end
-
-  defp build_preview_invoice(subscription, items, existing_items) do
+  # A preview WITH proposed changes is a quote for the immediate proration
+  # invoice the change would produce — prorations only, from the same
+  # arithmetic the actual charge uses (PaperTiger.Proration), so the quoted
+  # and charged amounts cannot disagree. Without proposed changes it remains
+  # a preview of the next full cycle.
+  defp build_preview_invoice(subscription, items, existing_items, has_changes) do
     now = PaperTiger.now()
     invoice_id = generate_id("in")
 
-    # Regular subscription lines (what the next invoice will look like)
-    regular_lines =
-      Enum.map(items, fn item ->
-        amount = (item.unit_amount || 0) * (item.quantity || 1)
+    lines =
+      if has_changes do
+        ratio = Proration.remaining_ratio(subscription, now)
+        Proration.lines(existing_items, items, ratio, now)
+      else
+        Enum.map(items, fn item ->
+          amount = (item.unit_amount || 0) * (item.quantity || 1)
 
-        %{
-          amount: amount,
-          currency: "usd",
-          description: "#{item.quantity} x (#{item.price_id})",
-          id: generate_id("il"),
-          object: "line_item",
-          price: %{id: item.price_id, product: item.product, unit_amount: item.unit_amount},
-          proration: false,
-          quantity: item.quantity,
-          type: "subscription"
-        }
-      end)
+          %{
+            amount: amount,
+            currency: Proration.price_currency(item.price_id),
+            description: "#{item.quantity} x (#{item.price_id})",
+            id: generate_id("il"),
+            object: "line_item",
+            price: %{id: item.price_id, product: item.product, unit_amount: item.unit_amount},
+            proration: false,
+            quantity: item.quantity,
+            type: "subscription"
+          }
+        end)
+      end
 
-    # Proration lines for mid-cycle changes
-    proration_lines = build_proration_lines(existing_items, items)
-
-    lines = regular_lines ++ proration_lines
     total = Enum.reduce(lines, 0, fn line, acc -> acc + line.amount end)
+    # A net credit is owed to the customer's balance, not collected now.
+    amount_due = max(total, 0)
 
     %{
-      amount_due: total,
+      amount_due: amount_due,
       amount_paid: 0,
-      amount_remaining: total,
+      amount_remaining: amount_due,
       created: now,
-      currency: "usd",
+      currency: Proration.invoice_currency(lines),
       customer: subscription[:customer],
       discount: subscription[:discount],
       id: invoice_id,
@@ -1353,79 +1339,4 @@ defmodule PaperTiger.Resources.Invoice do
       total_discount_amounts: []
     }
   end
-
-  # Generates proration lines by comparing existing subscription items with proposed items.
-  # Credits for removed/reduced items (negative), charges for added/increased items (positive).
-  # Assumes half a billing period remaining for simplicity.
-  defp build_proration_lines(existing_items, new_items) do
-    old_by_price = aggregate_items_by_price(existing_items)
-    new_by_price = aggregate_items_by_price(new_items)
-    price_ids = all_proration_price_ids(old_by_price, new_by_price)
-    Enum.flat_map(price_ids, &build_proration_lines_for_price(&1, old_by_price, new_by_price))
-  end
-
-  defp all_proration_price_ids(old_by_price, new_by_price) do
-    MapSet.union(MapSet.new(Map.keys(old_by_price)), MapSet.new(Map.keys(new_by_price)))
-  end
-
-  defp build_proration_lines_for_price(price_id, old_by_price, new_by_price) do
-    old = Map.get(old_by_price, price_id)
-    new = Map.get(new_by_price, price_id)
-    old_amount = proration_amount(old)
-    new_amount = proration_amount(new)
-
-    if old_amount == new_amount do
-      []
-    else
-      [build_credit_proration_line(price_id, old, new), build_charge_proration_line(price_id, old, new)]
-      |> Enum.reject(&is_nil/1)
-    end
-  end
-
-  defp proration_amount(nil), do: 0
-  defp proration_amount(item), do: item.amount
-
-  defp build_credit_proration_line(_price_id, nil, _new), do: nil
-
-  defp build_credit_proration_line(price_id, old, new) do
-    amount = proration_amount(old)
-
-    if amount > 0 do
-      base_item = new || old
-
-      %{
-        amount: -div(amount, 2),
-        currency: "usd",
-        description: "Unused time on #{proration_quantity(old)} x (#{price_id})",
-        id: generate_id("il"),
-        object: "line_item",
-        price: %{id: price_id, product: base_item.product, unit_amount: old.unit_amount},
-        proration: true,
-        quantity: proration_quantity(old),
-        type: "subscription"
-      }
-    end
-  end
-
-  defp build_charge_proration_line(_price_id, _old, nil), do: nil
-
-  defp build_charge_proration_line(price_id, _old, new) do
-    amount = proration_amount(new)
-
-    if amount > 0 do
-      %{
-        amount: div(amount, 2),
-        currency: "usd",
-        description: "Remaining time on #{proration_quantity(new)} x (#{price_id})",
-        id: generate_id("il"),
-        object: "line_item",
-        price: %{id: price_id, product: new.product, unit_amount: new.unit_amount},
-        proration: true,
-        quantity: proration_quantity(new),
-        type: "subscription"
-      }
-    end
-  end
-
-  defp proration_quantity(item), do: item.quantity
 end

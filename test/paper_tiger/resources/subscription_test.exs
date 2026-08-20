@@ -1479,6 +1479,63 @@ defmodule PaperTiger.Resources.SubscriptionTest do
       %{customer: customer, price: price, product: product, subscription: subscription}
     end
 
+    test "the proration invoice carries the price currency and prorated amounts", %{
+      customer: customer
+    } do
+      prod_conn = request(:post, "/v1/products", %{"name" => "EUR Plan"})
+      product = json_response(prod_conn)
+
+      eur_price_conn =
+        request(:post, "/v1/prices", %{
+          "currency" => "eur",
+          "product" => product["id"],
+          "recurring" => %{"interval" => "month"},
+          "unit_amount" => "19500"
+        })
+
+      eur_price = json_response(eur_price_conn)
+
+      eur_target_conn =
+        request(:post, "/v1/prices", %{
+          "currency" => "eur",
+          "product" => product["id"],
+          "recurring" => %{"interval" => "month"},
+          "unit_amount" => "99500"
+        })
+
+      eur_target = json_response(eur_target_conn)
+
+      sub_conn =
+        request(:post, "/v1/subscriptions", %{
+          "customer" => customer["id"],
+          "items" => [%{"price" => eur_price["id"], "quantity" => "1"}],
+          "status" => "active"
+        })
+
+      sub = json_response(sub_conn)
+      existing_item = hd(sub["items"]["data"])
+
+      update_conn =
+        request(:post, "/v1/subscriptions/#{sub["id"]}", %{
+          "items" => [
+            %{"id" => existing_item["id"], "deleted" => "true"},
+            %{"price" => eur_target["id"], "quantity" => "1"}
+          ],
+          "proration_behavior" => "always_invoice"
+        })
+
+      assert update_conn.status == 200
+      updated = json_response(update_conn)
+
+      inv_conn = request(:get, "/v1/invoices/#{updated["latest_invoice"]}", %{})
+      invoice = json_response(inv_conn)
+      assert invoice["currency"] == "eur"
+      assert invoice["status"] == "paid"
+      # Credit ~-19500 + charge ~99500 at a ~1.0 remaining ratio on a fresh
+      # subscription; a clock tick may shave a cent, so bounds not equality.
+      assert invoice["amount_paid"] >= 79_900 and invoice["amount_paid"] <= 80_000
+    end
+
     test "adding an item by price leaves unmentioned items alone", %{
       price: price,
       subscription: sub
