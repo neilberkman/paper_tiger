@@ -135,15 +135,11 @@ defmodule PaperTiger.Resources.Transfer do
   @spec retrieve_reversal(Plug.Conn.t(), String.t(), String.t()) :: Plug.Conn.t()
   def retrieve_reversal(conn, transfer_id, id) do
     with {:ok, _transfer} <- Transfers.get(transfer_id),
-         {:ok, reversal} <- TransferReversals.get(id),
-         true <- reversal.transfer == transfer_id do
+         {:ok, reversal} <- TransferReversals.get_owned(id, :transfer, transfer_id) do
       reversal
       |> maybe_expand(conn.params)
       |> then(&json_response(conn, 200, &1))
     else
-      false ->
-        error_response(conn, PaperTiger.Error.not_found("transfer_reversal", id))
-
       {:error, :not_found} ->
         error_response(conn, PaperTiger.Error.not_found("transfer_reversal", id))
     end
@@ -155,18 +151,17 @@ defmodule PaperTiger.Resources.Transfer do
   @spec update_reversal(Plug.Conn.t(), String.t(), String.t()) :: Plug.Conn.t()
   def update_reversal(conn, transfer_id, id) do
     with {:ok, _transfer} <- Transfers.get(transfer_id),
-         {:ok, reversal} <- TransferReversals.get(id),
-         true <- reversal.transfer == transfer_id,
+         {:ok, reversal} <- TransferReversals.get_owned(id, :transfer, transfer_id),
          updated = merge_updates(reversal, conn.params, [:id, :object, :created, :amount, :currency, :transfer]),
-         {:ok, updated} <- TransferReversals.update(updated) do
+         :ok <- TransferReversals.mutate_owned(:transfer, transfer_id, [{:update, updated}]) do
       updated
       |> maybe_expand(conn.params)
       |> then(&json_response(conn, 200, &1))
     else
-      false ->
+      {:error, :not_found} ->
         error_response(conn, PaperTiger.Error.not_found("transfer_reversal", id))
 
-      {:error, :not_found} ->
+      {:error, {_reason, _id}} ->
         error_response(conn, PaperTiger.Error.not_found("transfer_reversal", id))
     end
   end
@@ -251,7 +246,7 @@ defmodule PaperTiger.Resources.Transfer do
     end)
 
     reversal = Map.put(reversal, :balance_transaction, balance_transaction_id)
-    {:ok, reversal} = TransferReversals.insert(reversal)
+    :ok = TransferReversals.mutate_owned(:transfer, transfer.id, [{:insert, reversal}])
 
     amount_reversed = transfer.amount_reversed + reversal.amount
     reversed? = amount_reversed == transfer.amount

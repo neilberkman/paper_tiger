@@ -4,6 +4,8 @@ defmodule PaperTiger.Resources.ConnectPlatformTest do
   import PaperTiger.Test
 
   alias PaperTiger.Router
+  alias PaperTiger.Store.ApplicationFeeRefunds
+  alias PaperTiger.Store.ApplicationFees
 
   setup :checkout_paper_tiger
 
@@ -188,6 +190,44 @@ defmodule PaperTiger.Resources.ConnectPlatformTest do
       assert fully_reversed["amount_reversed"] == 1_500
       assert fully_reversed["reversed"] == true
     end
+
+    test "a reversal cannot be retrieved or updated through another transfer" do
+      account = create_account()
+      owner = create_transfer(account["id"])
+      other = create_transfer(account["id"])
+
+      reversal =
+        request(:post, "/v1/transfers/#{owner["id"]}/reversals", %{
+          "amount" => 100,
+          "metadata" => %{"owner" => "original"}
+        })
+        |> json_response()
+
+      wrong_retrieve = request(:get, "/v1/transfers/#{other["id"]}/reversals/#{reversal["id"]}")
+      assert wrong_retrieve.status == 404
+
+      wrong_update =
+        request(:post, "/v1/transfers/#{other["id"]}/reversals/#{reversal["id"]}", %{
+          "metadata" => %{"owner" => "reassigned"}
+        })
+
+      assert wrong_update.status == 404
+
+      original =
+        request(:get, "/v1/transfers/#{owner["id"]}/reversals/#{reversal["id"]}")
+        |> json_response()
+
+      assert original["transfer"] == owner["id"]
+      assert original["metadata"] == %{"owner" => "original"}
+
+      correct_update =
+        request(:post, "/v1/transfers/#{owner["id"]}/reversals/#{reversal["id"]}", %{
+          "metadata" => %{"owner" => "updated"}
+        })
+
+      assert correct_update.status == 200
+      assert json_response(correct_update)["metadata"] == %{"owner" => "updated"}
+    end
   end
 
   describe "Application Fee Refunds" do
@@ -262,6 +302,47 @@ defmodule PaperTiger.Resources.ConnectPlatformTest do
       assert over_refund_conn.status == 400
       assert json_response(over_refund_conn)["error"]["param"] == "amount"
     end
+
+    test "a refund cannot be retrieved or updated through another application fee" do
+      owner_fee = %{id: "fee_owner"}
+      other_fee = %{id: "fee_other"}
+
+      refund = %{
+        amount: 100,
+        created: PaperTiger.now(),
+        currency: "usd",
+        fee: owner_fee.id,
+        id: "fr_owned",
+        metadata: %{"owner" => "original"},
+        object: "fee_refund"
+      }
+
+      {:ok, _owner_fee} = ApplicationFees.insert(owner_fee)
+      {:ok, _other_fee} = ApplicationFees.insert(other_fee)
+      {:ok, _refund} = ApplicationFeeRefunds.insert(refund)
+
+      wrong_retrieve = request(:get, "/v1/application_fees/#{other_fee.id}/refunds/#{refund.id}")
+      assert wrong_retrieve.status == 404
+
+      wrong_update =
+        request(:post, "/v1/application_fees/#{other_fee.id}/refunds/#{refund.id}", %{
+          "metadata" => %{"owner" => "reassigned"}
+        })
+
+      assert wrong_update.status == 404
+
+      correct_retrieve = request(:get, "/v1/application_fees/#{owner_fee.id}/refunds/#{refund.id}")
+      assert correct_retrieve.status == 200
+      assert json_response(correct_retrieve)["metadata"] == %{"owner" => "original"}
+
+      correct_update =
+        request(:post, "/v1/application_fees/#{owner_fee.id}/refunds/#{refund.id}", %{
+          "metadata" => %{"owner" => "updated"}
+        })
+
+      assert correct_update.status == 200
+      assert json_response(correct_update)["metadata"] == %{"owner" => "updated"}
+    end
   end
 
   defp create_account do
@@ -270,6 +351,18 @@ defmodule PaperTiger.Resources.ConnectPlatformTest do
         "capabilities" => %{"transfers" => %{"requested" => true}},
         "country" => "US",
         "type" => "express"
+      })
+
+    assert conn.status == 200
+    json_response(conn)
+  end
+
+  defp create_transfer(destination) do
+    conn =
+      request(:post, "/v1/transfers", %{
+        "amount" => 1_000,
+        "currency" => "usd",
+        "destination" => destination
       })
 
     assert conn.status == 200
