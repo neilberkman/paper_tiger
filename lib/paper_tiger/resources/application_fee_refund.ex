@@ -58,15 +58,11 @@ defmodule PaperTiger.Resources.ApplicationFeeRefund do
   def retrieve(conn, fee_id, id) do
     Connect.without_account(fn ->
       with {:ok, _fee} <- ApplicationFees.get(fee_id),
-           {:ok, refund} <- ApplicationFeeRefunds.get(id),
-           true <- refund.fee == fee_id do
+           {:ok, refund} <- ApplicationFeeRefunds.get_owned(id, :fee, fee_id) do
         refund
         |> maybe_expand(conn.params)
         |> then(&json_response(conn, 200, &1))
       else
-        false ->
-          error_response(conn, PaperTiger.Error.not_found("fee_refund", id))
-
         {:error, :not_found} ->
           error_response(conn, PaperTiger.Error.not_found("fee_refund", id))
       end
@@ -80,18 +76,17 @@ defmodule PaperTiger.Resources.ApplicationFeeRefund do
   def update(conn, fee_id, id) do
     Connect.without_account(fn ->
       with {:ok, _fee} <- ApplicationFees.get(fee_id),
-           {:ok, refund} <- ApplicationFeeRefunds.get(id),
-           true <- refund.fee == fee_id,
+           {:ok, refund} <- ApplicationFeeRefunds.get_owned(id, :fee, fee_id),
            updated = merge_updates(refund, conn.params, [:id, :object, :created, :amount, :currency, :fee]),
-           {:ok, updated} <- ApplicationFeeRefunds.update(updated) do
+           :ok <- ApplicationFeeRefunds.mutate_owned(:fee, fee_id, [{:update, updated}]) do
         updated
         |> maybe_expand(conn.params)
         |> then(&json_response(conn, 200, &1))
       else
-        false ->
+        {:error, :not_found} ->
           error_response(conn, PaperTiger.Error.not_found("fee_refund", id))
 
-        {:error, :not_found} ->
+        {:error, {_reason, _id}} ->
           error_response(conn, PaperTiger.Error.not_found("fee_refund", id))
       end
     end)
@@ -150,7 +145,11 @@ defmodule PaperTiger.Resources.ApplicationFeeRefund do
   defp insert_refund_with_balance_transaction(refund) do
     {:ok, balance_transaction_id} = BalanceTransactionHelper.create_for_application_fee_refund(refund)
     refund = Map.put(refund, :balance_transaction, balance_transaction_id)
-    ApplicationFeeRefunds.insert(refund)
+
+    case ApplicationFeeRefunds.mutate_owned(:fee, refund.fee, [{:insert, refund}]) do
+      :ok -> {:ok, refund}
+      {:error, _reason} -> {:error, :not_found}
+    end
   end
 
   defp update_fee_for_refund(fee, refund) do

@@ -25,8 +25,9 @@ defmodule PaperTiger.Store do
       end
 
   This generates all standard store functions:
-  - `get/1`, `list/1`, `count/0` (reads - direct ETS)
-  - `insert/1`, `update/1`, `delete/1`, `clear/0` (writes - via GenServer)
+  - `get/1`, `get_owned/3`, `list/1`, `count/0` (reads - direct ETS)
+  - `insert/1`, `update/1`, `delete/1`, `mutate_owned/3`, `clear/0`
+    (writes - via GenServer)
   - `clear_namespace/1` (for test cleanup)
   - GenServer callbacks
 
@@ -49,6 +50,7 @@ defmodule PaperTiger.Store do
     [
       quote_module_setup(table, resource, prefix, plural, url_path),
       quote_read_functions(table, resource, plural, url_path),
+      quote_owned_read_function(resource),
       quote_write_functions(resource, plural),
       quote_namespace_functions(table, plural),
       quote_callbacks(table, resource, plural)
@@ -58,6 +60,8 @@ defmodule PaperTiger.Store do
   defp quote_module_setup(table, resource, prefix, plural, url_path) do
     quote do
       use GenServer
+
+      alias PaperTiger.Store.Ownership
 
       require Logger
 
@@ -151,6 +155,29 @@ defmodule PaperTiger.Store do
     end
   end
 
+  defp quote_owned_read_function(resource) do
+    quote do
+      @doc """
+      Retrieves a #{unquote(resource)} only when it belongs to the given owner.
+
+      Missing resources and resources owned by a different parent both return
+      `{:error, :not_found}` so nested endpoints do not disclose foreign IDs.
+      """
+      @spec get_owned(String.t(), atom(), term()) :: {:ok, map()} | {:error, :not_found}
+      def get_owned(id, owner_field, owner_id) when is_binary(id) and is_atom(owner_field) do
+        case get(id) do
+          {:ok, item} ->
+            if Map.get(item, owner_field) == owner_id,
+              do: {:ok, item},
+              else: {:error, :not_found}
+
+          {:error, :not_found} = error ->
+            error
+        end
+      end
+    end
+  end
+
   defp quote_write_functions(resource, _plural) do
     quote do
       @doc """
@@ -187,6 +214,22 @@ defmodule PaperTiger.Store do
       def delete(id) when is_binary(id) do
         namespace = current_namespace()
         GenServer.call(__MODULE__, {:delete, namespace, id})
+      end
+
+      @doc """
+      Validates and applies child-resource mutations in one serialized store call.
+
+      Every operation is checked before any write occurs. Inserts must use new
+      IDs, updates and deletes must target existing resources owned by
+      `owner_id`, and an ID may appear only once in the batch.
+      """
+      @spec mutate_owned(atom(), term(), [{:insert | :update, map()} | {:delete, String.t()}]) ::
+              :ok
+              | {:error, {:already_exists | :duplicate_operation | :not_found | :not_owned, String.t()}}
+      def mutate_owned(owner_field, owner_id, operations)
+          when is_atom(owner_field) and is_list(operations) do
+        namespace = current_namespace()
+        GenServer.call(__MODULE__, {:mutate_owned, namespace, owner_field, owner_id, operations})
       end
 
       @doc """
@@ -265,6 +308,19 @@ defmodule PaperTiger.Store do
         {:reply, :ok, state}
       end
 
+      def handle_call({:mutate_owned, namespace, owner_field, owner_id, operations}, _from, state) do
+        result =
+          Ownership.mutate(
+            unquote(table),
+            namespace,
+            owner_field,
+            owner_id,
+            operations
+          )
+
+        {:reply, result, state}
+      end
+
       def handle_call(:clear, _from, state) do
         :ets.delete_all_objects(unquote(table))
         {:reply, :ok, state}
@@ -286,11 +342,13 @@ defmodule PaperTiger.Store do
                      handle_call: 3,
                      terminate: 2,
                      get: 1,
+                     get_owned: 3,
                      list: 1,
                      count: 0,
                      insert: 1,
                      update: 1,
                      delete: 1,
+                     mutate_owned: 3,
                      clear: 0,
                      clear_namespace: 1,
                      list_namespace: 1

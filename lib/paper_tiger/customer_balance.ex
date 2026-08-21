@@ -40,7 +40,8 @@ defmodule PaperTiger.CustomerBalance do
         |> Map.put(:currency, currency)
 
       with {:ok, _customer} <- Customers.update(updated_customer) do
-        CustomerBalanceTransactions.insert(transaction)
+        :ok = CustomerBalanceTransactions.mutate_owned(:customer, customer.id, [{:insert, transaction}])
+        {:ok, transaction}
       end
     end
   end

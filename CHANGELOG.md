@@ -16,6 +16,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- Child-resource mutations now enforce parent ownership at the store boundary,
+  reject duplicate IDs, and validate complete batches before writing.
+  Subscription items, transfer reversals, application-fee refunds, and customer
+  balance transactions use the shared guardrail.
 - Subscription updates and invoice previews now use the same remaining-period
   proration arithmetic and price currency. Preview invoices retain recurring
   lines, generated proration lines survive invoice retrieval and the invoice

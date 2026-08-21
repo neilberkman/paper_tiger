@@ -31,12 +31,9 @@ defmodule PaperTiger.Resources.CustomerBalanceTransaction do
   """
   @spec retrieve(Plug.Conn.t(), String.t(), String.t()) :: Plug.Conn.t()
   def retrieve(conn, customer_id, id) do
-    case CustomerBalanceTransactions.get(id) do
-      {:ok, %{customer: ^customer_id} = transaction} ->
+    case CustomerBalanceTransactions.get_owned(id, :customer, customer_id) do
+      {:ok, transaction} ->
         json_response(conn, 200, transaction)
-
-      {:ok, _transaction} ->
-        error_response(conn, PaperTiger.Error.not_found("customer_balance_transaction", id))
 
       {:error, :not_found} ->
         error_response(conn, PaperTiger.Error.not_found("customer_balance_transaction", id))
@@ -48,8 +45,8 @@ defmodule PaperTiger.Resources.CustomerBalanceTransaction do
   """
   @spec update(Plug.Conn.t(), String.t(), String.t()) :: Plug.Conn.t()
   def update(conn, customer_id, id) do
-    case CustomerBalanceTransactions.get(id) do
-      {:ok, %{customer: ^customer_id} = existing} ->
+    case CustomerBalanceTransactions.get_owned(id, :customer, customer_id) do
+      {:ok, existing} ->
         updated =
           merge_updates(existing, conn.params, [
             :amount,
@@ -65,14 +62,13 @@ defmodule PaperTiger.Resources.CustomerBalanceTransaction do
             :type
           ])
 
-        {:ok, updated} = CustomerBalanceTransactions.update(updated)
-        json_response(conn, 200, updated)
-
-      {:ok, _transaction} ->
-        error_response(conn, PaperTiger.Error.not_found("customer_balance_transaction", id))
+        case CustomerBalanceTransactions.mutate_owned(:customer, customer_id, [{:update, updated}]) do
+          :ok -> json_response(conn, 200, updated)
+          {:error, {_reason, _id}} -> not_found(conn, id)
+        end
 
       {:error, :not_found} ->
-        error_response(conn, PaperTiger.Error.not_found("customer_balance_transaction", id))
+        not_found(conn, id)
     end
   end
 
@@ -90,5 +86,9 @@ defmodule PaperTiger.Resources.CustomerBalanceTransaction do
       |> PaperTiger.List.paginate(opts)
     end)
     |> then(&json_response(conn, 200, &1))
+  end
+
+  defp not_found(conn, id) do
+    error_response(conn, PaperTiger.Error.not_found("customer_balance_transaction", id))
   end
 end

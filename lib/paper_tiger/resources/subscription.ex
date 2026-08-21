@@ -158,8 +158,8 @@ defmodule PaperTiger.Resources.Subscription do
          updated = merge_updates(existing, coerced_params),
          updated = maybe_update_discount(updated, conn.params),
          updated = maybe_activate_subscription_after_trial(updated),
-         {:ok, updated} <- Subscriptions.update(updated),
-         :ok <- apply_subscription_item_operations(item_operations) do
+         :ok <- apply_subscription_item_operations(id, item_operations),
+         {:ok, updated} <- Subscriptions.update(updated) do
       items_after_update = SubscriptionItems.find_by_subscription(id)
       billable_items_changed = billable_items_changed?(existing_items, items_after_update)
       updated = maybe_create_proration_invoice(updated, conn.params, billable_items_changed, existing_items)
@@ -689,14 +689,18 @@ defmodule PaperTiger.Resources.Subscription do
   defp reverse_prepared_operations({:ok, operations}), do: {:ok, Enum.reverse(operations)}
   defp reverse_prepared_operations(error), do: error
 
-  defp apply_subscription_item_operations(operations) do
-    Enum.each(operations, fn
-      {:delete, item_id} -> :ok = SubscriptionItems.delete(item_id)
-      {:insert, item} -> {:ok, _item} = SubscriptionItems.insert(item)
-      {:update, item} -> {:ok, _item} = SubscriptionItems.update(item)
-    end)
+  defp apply_subscription_item_operations(subscription_id, operations) do
+    case SubscriptionItems.mutate_owned(:subscription, subscription_id, operations) do
+      :ok ->
+        :ok
 
-    :ok
+      {:error, {_reason, item_id}} ->
+        {:error,
+         PaperTiger.Error.invalid_request(
+           "Subscription item '#{item_id}' changed while the request was being processed",
+           "items"
+         )}
+    end
   end
 
   # Form-encoded bodies carry booleans as strings, so accept both forms.

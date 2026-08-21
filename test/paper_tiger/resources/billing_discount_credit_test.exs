@@ -125,6 +125,46 @@ defmodule PaperTiger.Resources.BillingDiscountCreditTest do
       assert json_response(customer_conn)["balance"] == 0
     end
 
+    test "a transaction cannot be retrieved or updated through another customer" do
+      owner = create_customer()
+      other = create_customer()
+
+      transaction =
+        request(:post, "/v1/customers/#{owner["id"]}/balance_transactions", %{
+          "amount" => -500,
+          "currency" => "usd",
+          "description" => "Original"
+        })
+        |> json_response()
+
+      wrong_retrieve =
+        request(:get, "/v1/customers/#{other["id"]}/balance_transactions/#{transaction["id"]}")
+
+      assert wrong_retrieve.status == 404
+
+      wrong_update =
+        request(:post, "/v1/customers/#{other["id"]}/balance_transactions/#{transaction["id"]}", %{
+          "description" => "Reassigned"
+        })
+
+      assert wrong_update.status == 404
+
+      original =
+        request(:get, "/v1/customers/#{owner["id"]}/balance_transactions/#{transaction["id"]}")
+        |> json_response()
+
+      assert original["customer"] == owner["id"]
+      assert original["description"] == "Original"
+
+      correct_update =
+        request(:post, "/v1/customers/#{owner["id"]}/balance_transactions/#{transaction["id"]}", %{
+          "description" => "Updated by owner"
+        })
+
+      assert correct_update.status == 200
+      assert json_response(correct_update)["description"] == "Updated by owner"
+    end
+
     test "retrieves and updates cash balance settings" do
       customer = create_customer()
 
