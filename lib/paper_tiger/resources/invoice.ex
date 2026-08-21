@@ -120,6 +120,25 @@ defmodule PaperTiger.Resources.Invoice do
   end
 
   @doc """
+  Lists the line items for an invoice.
+  """
+  @spec list_lines(Plug.Conn.t(), String.t()) :: Plug.Conn.t()
+  def list_lines(conn, id) do
+    case Invoices.get(id) do
+      {:ok, _invoice} ->
+        json_response(conn, 200, %{
+          data: InvoiceItems.find_by_invoice(id),
+          has_more: false,
+          object: "list",
+          url: "/v1/invoices/#{id}/lines"
+        })
+
+      {:error, :not_found} ->
+        error_response(conn, PaperTiger.Error.not_found("invoice", id))
+    end
+  end
+
+  @doc """
   Updates an invoice.
 
   ## Updatable Fields
@@ -329,11 +348,10 @@ defmodule PaperTiger.Resources.Invoice do
            {:ok, subscription} <- Subscriptions.get(subscription_id) do
         sd = param_value(conn.params, :subscription_details) || %{}
         proposed_items = param_value(sd, :items) || %{}
-        has_changes = normalize_proposed_preview_items(proposed_items) != []
         existing = SubscriptionItems.find_by_subscription(subscription_id)
         existing_resolved = Enum.map(existing, &resolve_item_for_preview/1)
         merged = merge_preview_items(subscription_id, proposed_items)
-        invoice = build_preview_invoice(subscription, merged, existing_resolved, has_changes)
+        invoice = build_preview_invoice(subscription, merged, existing_resolved)
         json_response(conn, 200, invoice)
       else
         {:error, :invalid_quantity, field} ->
@@ -1278,36 +1296,33 @@ defmodule PaperTiger.Resources.Invoice do
     end
   end
 
-  # A preview WITH proposed changes is a quote for the immediate proration
-  # invoice the change would produce — prorations only, from the same
-  # arithmetic the actual charge uses (PaperTiger.Proration), so the quoted
-  # and charged amounts cannot disagree. Without proposed changes it remains
-  # a preview of the next full cycle.
-  defp build_preview_invoice(subscription, items, existing_items, has_changes) do
+  # A preview remains an upcoming invoice: it includes the next recurring
+  # lines plus any immediate prorations. PaperTiger.Proration owns the latter
+  # so callers can filter those lines and compare them with an actual update.
+  defp build_preview_invoice(subscription, items, existing_items) do
     now = PaperTiger.now()
     invoice_id = generate_id("in")
 
-    lines =
-      if has_changes do
-        ratio = Proration.remaining_ratio(subscription, now)
-        Proration.lines(existing_items, items, ratio, now)
-      else
-        Enum.map(items, fn item ->
-          amount = (item.unit_amount || 0) * (item.quantity || 1)
+    recurring_lines =
+      Enum.map(items, fn item ->
+        amount = (item.unit_amount || 0) * (item.quantity || 1)
 
-          %{
-            amount: amount,
-            currency: Proration.price_currency(item.price_id),
-            description: "#{item.quantity} x (#{item.price_id})",
-            id: generate_id("il"),
-            object: "line_item",
-            price: %{id: item.price_id, product: item.product, unit_amount: item.unit_amount},
-            proration: false,
-            quantity: item.quantity,
-            type: "subscription"
-          }
-        end)
-      end
+        %{
+          amount: amount,
+          currency: Proration.price_currency(item.price_id),
+          description: "#{item.quantity} x (#{item.price_id})",
+          id: generate_id("il"),
+          object: "line_item",
+          price: %{id: item.price_id, product: item.product, unit_amount: item.unit_amount},
+          proration: false,
+          quantity: item.quantity,
+          type: "subscription"
+        }
+      end)
+
+    ratio = Proration.remaining_ratio(subscription, now)
+    proration_lines = Proration.lines(existing_items, items, ratio, now)
+    lines = proration_lines ++ recurring_lines
 
     total = Enum.reduce(lines, 0, fn line, acc -> acc + line.amount end)
     # A net credit is owed to the customer's balance, not collected now.

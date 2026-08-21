@@ -1,12 +1,12 @@
 defmodule PaperTiger.Proration do
   @moduledoc """
   Proration math shared by the immediate proration invoice (subscription
-  updates) and its preview (`POST /v1/invoices/create_preview`).
+  updates) and the proration lines in its preview
+  (`POST /v1/invoices/create_preview`).
 
-  One module on purpose: the preview is a quote for the charge, so the two
-  must come from the same arithmetic — the same remaining-period ratio, the
-  same item diff, the same currency — or a client that shows the quote and
-  then performs the update watches the numbers disagree.
+  One module on purpose: the previewed proration lines quote the immediate
+  adjustment, so both paths must use the same remaining-period ratio, item
+  diff, and currency.
 
   Amounts follow Stripe's model: credit the unused remainder of what was
   removed, charge the remainder of what was added, both scaled by how much of
@@ -60,7 +60,7 @@ defmodule PaperTiger.Proration do
       Map.update(
         acc,
         item.price_id,
-        %{amount: amount, quantity: quantity, product: item.product, unit_amount: item.unit_amount},
+        %{amount: amount, product: item.product, quantity: quantity, unit_amount: item.unit_amount},
         fn agg -> %{agg | amount: agg.amount + amount, quantity: agg.quantity + quantity} end
       )
     end)

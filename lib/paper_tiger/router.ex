@@ -303,6 +303,10 @@ defmodule PaperTiger.Router do
     Invoice.search(conn)
   end
 
+  get "/v1/invoices/:id/lines" do
+    Invoice.list_lines(conn, conn.path_params["id"])
+  end
+
   stripe_resource("invoices", Invoice, [])
   stripe_resource("payment_methods", PaymentMethod, [])
   stripe_resource("payment_method_domains", PaymentMethodDomain, except: [:delete])

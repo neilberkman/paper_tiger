@@ -16,6 +16,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- Subscription updates and invoice previews now use the same remaining-period
+  proration arithmetic and price currency. Preview invoices retain recurring
+  lines, generated proration lines survive invoice retrieval and the invoice
+  lines endpoint, and net credits keep their negative total with zero due.
 - Automatic subscription invoice payments now honor subscription and customer
   payment-method/source fallbacks, while invoices with no usable payment
   credential remain unpaid and move applicable updates to `past_due`.

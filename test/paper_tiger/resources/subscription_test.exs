@@ -1482,6 +1482,7 @@ defmodule PaperTiger.Resources.SubscriptionTest do
     test "the proration invoice carries the price currency and prorated amounts", %{
       customer: customer
     } do
+      payment_method = create_attached_payment_method(customer["id"])
       prod_conn = request(:post, "/v1/products", %{"name" => "EUR Plan"})
       product = json_response(prod_conn)
 
@@ -1508,6 +1509,7 @@ defmodule PaperTiger.Resources.SubscriptionTest do
       sub_conn =
         request(:post, "/v1/subscriptions", %{
           "customer" => customer["id"],
+          "default_payment_method" => payment_method["id"],
           "items" => [%{"price" => eur_price["id"], "quantity" => "1"}],
           "status" => "active"
         })
@@ -1518,7 +1520,7 @@ defmodule PaperTiger.Resources.SubscriptionTest do
       update_conn =
         request(:post, "/v1/subscriptions/#{sub["id"]}", %{
           "items" => [
-            %{"id" => existing_item["id"], "deleted" => "true"},
+            %{"deleted" => "true", "id" => existing_item["id"]},
             %{"price" => eur_target["id"], "quantity" => "1"}
           ],
           "proration_behavior" => "always_invoice"
@@ -1534,6 +1536,13 @@ defmodule PaperTiger.Resources.SubscriptionTest do
       # Credit ~-19500 + charge ~99500 at a ~1.0 remaining ratio on a fresh
       # subscription; a clock tick may shave a cent, so bounds not equality.
       assert invoice["amount_paid"] >= 79_900 and invoice["amount_paid"] <= 80_000
+
+      lines = invoice["lines"]["data"]
+      assert length(lines) == 2
+      assert Enum.all?(lines, & &1["proration"])
+      assert Enum.all?(lines, &(&1["currency"] == "eur"))
+      assert Enum.all?(lines, &(&1["invoice"] == invoice["id"]))
+      assert Enum.sum(Enum.map(lines, & &1["amount"])) == invoice["total"]
     end
 
     test "adding an item by price leaves unmentioned items alone", %{
@@ -1639,6 +1648,16 @@ defmodule PaperTiger.Resources.SubscriptionTest do
       assert is_nil(invoice["status_transitions"]["paid_at"])
       assert invoice["subscription"] == sub["id"]
       assert invoice["customer"] == sub["customer"]
+
+      lines = invoice["lines"]["data"]
+      assert length(lines) == 2
+      assert Enum.all?(lines, & &1["proration"])
+      assert Enum.sum(Enum.map(lines, & &1["amount"])) == invoice["total"]
+
+      lines_conn = request(:get, "/v1/invoices/#{invoice["id"]}/lines", %{})
+      assert lines_conn.status == 200
+      listed_lines = json_response(lines_conn)["data"]
+      assert Enum.sort(Enum.map(listed_lines, & &1["id"])) == Enum.sort(Enum.map(lines, & &1["id"]))
     end
 
     test "creates proration invoice when proration_behavior is create_prorations", %{
@@ -1662,6 +1681,11 @@ defmodule PaperTiger.Resources.SubscriptionTest do
       invoice = json_response(inv_conn)
       assert invoice["status"] == "draft"
       assert invoice["subscription"] == sub["id"]
+
+      lines = invoice["lines"]["data"]
+      assert length(lines) == 2
+      assert Enum.all?(lines, & &1["proration"])
+      assert Enum.sum(Enum.map(lines, & &1["amount"])) == invoice["total"]
     end
 
     test "does not create invoice when proration_behavior is none", %{

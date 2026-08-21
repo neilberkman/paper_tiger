@@ -806,10 +806,12 @@ defmodule PaperTiger.Resources.Subscription do
         ratio,
         now
       )
+      |> Enum.map(&attach_proration_line_context(&1, subscription, invoice_id))
 
-    total = Enum.reduce(lines, 0, fn line, acc -> acc + line.amount end) |> max(0)
+    total = Enum.reduce(lines, 0, fn line, acc -> acc + line.amount end)
+    amount_due = max(total, 0)
     payment_credential = effective_payment_credential(subscription)
-    auto_paid = proration_auto_paid?(subscription, payment_credential, proration_behavior)
+    auto_paid = proration_auto_paid?(subscription, payment_credential, proration_behavior, amount_due)
     status = proration_invoice_status(proration_behavior, auto_paid)
     subscription = maybe_mark_proration_payment_failed(subscription, params, auto_paid)
 
@@ -820,10 +822,12 @@ defmodule PaperTiger.Resources.Subscription do
         lines,
         now,
         total,
+        amount_due,
         auto_paid,
         status
       )
 
+    Enum.each(lines, &InvoiceItems.insert/1)
     {:ok, _} = Invoices.insert(invoice)
     persist_latest_invoice(subscription, invoice_id)
   end
@@ -842,7 +846,17 @@ defmodule PaperTiger.Resources.Subscription do
     }
   end
 
-  defp proration_auto_paid?(subscription, payment_credential, proration_behavior) do
+  defp attach_proration_line_context(line, subscription, invoice_id) do
+    Map.merge(line, %{
+      customer: subscription.customer,
+      invoice: invoice_id,
+      subscription: subscription.id
+    })
+  end
+
+  defp proration_auto_paid?(_subscription, _payment_credential, "always_invoice", 0), do: true
+
+  defp proration_auto_paid?(subscription, payment_credential, proration_behavior, _amount_due) do
     proration_behavior == "always_invoice" and
       Map.get(subscription, :collection_method, "charge_automatically") == "charge_automatically" and
       not is_nil(payment_credential)
@@ -866,11 +880,11 @@ defmodule PaperTiger.Resources.Subscription do
 
   defp maybe_mark_proration_payment_failed(subscription, _params, _auto_paid), do: subscription
 
-  defp build_proration_invoice_payload(subscription, invoice_id, lines, now, total, auto_paid, status) do
+  defp build_proration_invoice_payload(subscription, invoice_id, lines, now, total, amount_due, auto_paid, status) do
     %{
-      amount_due: total,
-      amount_paid: if(auto_paid, do: total, else: 0),
-      amount_remaining: if(auto_paid, do: 0, else: total),
+      amount_due: amount_due,
+      amount_paid: if(auto_paid, do: amount_due, else: 0),
+      amount_remaining: if(auto_paid, do: 0, else: amount_due),
       created: now,
       currency: Proration.invoice_currency(lines),
       customer: subscription.customer,

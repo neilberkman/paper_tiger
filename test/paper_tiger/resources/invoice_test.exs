@@ -61,6 +61,13 @@ defmodule PaperTiger.Resources.InvoiceTest do
     Jason.decode!(conn.resp_body)
   end
 
+  defp proration_amounts_by_price_and_sign(lines) do
+    Map.new(lines, fn line ->
+      sign = if line["amount"] < 0, do: :credit, else: :charge
+      {{line["price"]["id"], sign}, line["amount"]}
+    end)
+  end
+
   # Helper to create a customer for testing
   defp create_customer(email \\ "test@example.com") do
     conn = request(:post, "/v1/customers", %{"email" => email})
@@ -1690,20 +1697,23 @@ defmodule PaperTiger.Resources.InvoiceTest do
       lines = invoice["lines"]["data"]
       assert is_list(lines)
 
-      # A preview WITH proposed changes quotes the immediate proration
-      # invoice: prorations only, no next-cycle lines. The subscription was
-      # just created, so the remaining-period ratio is ~1.0 (a clock tick may
-      # shave a cent — assert with slack, not equality).
-      assert Enum.all?(lines, & &1["proration"])
+      regular_lines = Enum.reject(lines, & &1["proration"])
+      proration_lines = Enum.filter(lines, & &1["proration"])
 
-      credit = Enum.find(lines, &(&1["amount"] < 0))
-      charge = Enum.find(lines, &(&1["amount"] > 0))
+      # The upcoming invoice retains the next-cycle charge, while its
+      # proration lines quote the immediate adjustment.
+      assert [regular] = regular_lines
+      assert regular["amount"] == 15_000
+      assert regular["price"]["id"] == ctx.new_price["id"]
+
+      credit = Enum.find(proration_lines, &(&1["amount"] < 0))
+      charge = Enum.find(proration_lines, &(&1["amount"] > 0))
       assert credit["price"]["id"] == ctx.price["id"]
       assert charge["price"]["id"] == ctx.new_price["id"]
       assert credit["amount"] >= -2_000 and credit["amount"] <= -1_990
       assert charge["amount"] <= 15_000 and charge["amount"] >= 14_990
       assert invoice["currency"] == "usd"
-      assert invoice["total"] == credit["amount"] + charge["amount"]
+      assert invoice["total"] == regular["amount"] + credit["amount"] + charge["amount"]
       assert invoice["amount_due"] == invoice["total"]
     end
 
@@ -1749,11 +1759,13 @@ defmodule PaperTiger.Resources.InvoiceTest do
       invoice = json_response(conn)
       lines = invoice["lines"]["data"]
 
-      # Prorations only: credit the old quantity's remainder, charge the new
-      # quantity's remainder, same price aggregated on both sides.
-      assert Enum.all?(lines, & &1["proration"])
-      credit = Enum.find(lines, &(&1["amount"] < 0))
-      charge = Enum.find(lines, &(&1["amount"] > 0))
+      # The recurring line reflects the proposed quantity; the adjustment
+      # credits the old quantity and charges the new quantity.
+      assert [regular] = Enum.reject(lines, & &1["proration"])
+      assert regular["amount"] == 10_000
+      proration_lines = Enum.filter(lines, & &1["proration"])
+      credit = Enum.find(proration_lines, &(&1["amount"] < 0))
+      charge = Enum.find(proration_lines, &(&1["amount"] > 0))
       assert credit["amount"] >= -2_000 and credit["amount"] <= -1_990
       assert charge["amount"] <= 10_000 and charge["amount"] >= 9_990
     end
@@ -1801,13 +1813,125 @@ defmodule PaperTiger.Resources.InvoiceTest do
       lines = invoice["lines"]["data"]
 
       # The sibling item survives the by-id update, so the aggregate for the
-      # shared price goes 2 -> 3 units: credit ~4000, charge ~6000, all
-      # prorated at ~1.0 on a fresh subscription.
-      assert Enum.all?(lines, & &1["proration"])
-      credit = Enum.find(lines, &(&1["amount"] < 0))
-      charge = Enum.find(lines, &(&1["amount"] > 0))
+      # shared price goes 2 -> 3 units: recurring 6000, credit ~4000, and
+      # charge ~6000, prorated at ~1.0 on a fresh subscription.
+      regular_lines = Enum.reject(lines, & &1["proration"])
+      assert length(regular_lines) == 2
+      assert Enum.sum(Enum.map(regular_lines, & &1["amount"])) == 6_000
+      proration_lines = Enum.filter(lines, & &1["proration"])
+      credit = Enum.find(proration_lines, &(&1["amount"] < 0))
+      charge = Enum.find(proration_lines, &(&1["amount"] > 0))
       assert credit["amount"] >= -4_000 and credit["amount"] <= -3_980
       assert charge["amount"] <= 6_000 and charge["amount"] >= 5_980
+    end
+
+    test "a no-op item update retains the recurring invoice", ctx do
+      existing_item = hd(ctx.subscription["items"]["data"])
+
+      conn =
+        request(:post, "/v1/invoices/create_preview", %{
+          "subscription" => ctx.subscription["id"],
+          "subscription_details" => %{
+            "items" => %{
+              "0" => %{"id" => existing_item["id"], "quantity" => "1"}
+            }
+          }
+        })
+
+      assert conn.status == 200
+      invoice = json_response(conn)
+      assert [line] = invoice["lines"]["data"]
+      assert line["proration"] == false
+      assert line["price"]["id"] == ctx.price["id"]
+      assert line["amount"] == 2_000
+      assert invoice["subtotal"] == 2_000
+      assert invoice["total"] == 2_000
+      assert invoice["amount_due"] == 2_000
+      assert invoice["amount_remaining"] == 2_000
+    end
+
+    test "net-credit preview and update agree on persisted proration lines", ctx do
+      expensive_price =
+        PaperTiger.TestHelpers.create_price(ctx.product["id"],
+          unit_amount: 10_000,
+          currency: "usd",
+          recurring: %{interval: "month"}
+        )
+
+      cheap_price =
+        PaperTiger.TestHelpers.create_price(ctx.product["id"],
+          unit_amount: 1_000,
+          currency: "usd",
+          recurring: %{interval: "month"}
+        )
+
+      subscription =
+        PaperTiger.TestHelpers.create_subscription(ctx.customer["id"], expensive_price["id"],
+          items: %{"0" => %{price: expensive_price["id"], quantity: 1}}
+        )
+
+      existing_item = hd(subscription["items"]["data"])
+
+      preview_conn =
+        request(:post, "/v1/invoices/create_preview", %{
+          "subscription" => subscription["id"],
+          "subscription_details" => %{
+            "items" => %{
+              "0" => %{"deleted" => "true", "id" => existing_item["id"]},
+              "1" => %{"price" => cheap_price["id"], "quantity" => "1"}
+            }
+          }
+        })
+
+      assert preview_conn.status == 200
+      preview = json_response(preview_conn)
+      preview_lines = preview["lines"]["data"]
+      preview_prorations = Enum.filter(preview_lines, & &1["proration"])
+      assert [recurring] = Enum.reject(preview_lines, & &1["proration"])
+      assert recurring["amount"] == 1_000
+      assert preview["total"] == Enum.sum(Enum.map(preview_lines, & &1["amount"]))
+      assert preview["total"] < 0
+      assert preview["amount_due"] == 0
+      assert preview["amount_remaining"] == 0
+
+      update_conn =
+        request(:post, "/v1/subscriptions/#{subscription["id"]}", %{
+          "items" => [
+            %{"deleted" => "true", "id" => existing_item["id"]},
+            %{"price" => cheap_price["id"], "quantity" => "1"}
+          ],
+          "proration_behavior" => "always_invoice"
+        })
+
+      assert update_conn.status == 200
+      updated = json_response(update_conn)
+
+      invoice_conn = request(:get, "/v1/invoices/#{updated["latest_invoice"]}")
+      assert invoice_conn.status == 200
+      invoice = json_response(invoice_conn)
+      actual_prorations = invoice["lines"]["data"]
+
+      assert length(actual_prorations) == 2
+      assert Enum.all?(actual_prorations, & &1["proration"])
+      assert invoice["total"] == Enum.sum(Enum.map(actual_prorations, & &1["amount"]))
+      assert invoice["total"] < 0
+      assert invoice["amount_due"] == 0
+      assert invoice["amount_paid"] == 0
+      assert invoice["amount_remaining"] == 0
+      assert invoice["paid"] == true
+      assert invoice["status"] == "paid"
+
+      preview_amounts = proration_amounts_by_price_and_sign(preview_prorations)
+      actual_amounts = proration_amounts_by_price_and_sign(actual_prorations)
+
+      Enum.each(preview_amounts, fn {key, preview_amount} ->
+        assert abs(Map.fetch!(actual_amounts, key) - preview_amount) <= 1
+      end)
+
+      lines_conn = request(:get, "/v1/invoices/#{invoice["id"]}/lines")
+      assert lines_conn.status == 200
+      listed_lines = json_response(lines_conn)["data"]
+      assert Enum.sort(Enum.map(listed_lines, & &1["id"])) == Enum.sort(Enum.map(actual_prorations, & &1["id"]))
     end
   end
 
