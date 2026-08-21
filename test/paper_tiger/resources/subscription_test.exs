@@ -751,6 +751,48 @@ defmodule PaperTiger.Resources.SubscriptionTest do
       assert updated_item["quantity"] == 4
     end
 
+    test "applies mixed item deltas and preserves the order of additions", %{
+      price_id: price_id,
+      subscription_id: subscription_id
+    } do
+      seed_conn =
+        request(:post, "/v1/subscriptions/#{subscription_id}", %{
+          "items" => [
+            %{"price" => price_id, "quantity" => "2"},
+            %{"price" => price_id, "quantity" => "3"}
+          ]
+        })
+
+      assert seed_conn.status == 200
+      seed_items = json_response(seed_conn)["items"]["data"]
+      updated_item = Enum.find(seed_items, &(&1["quantity"] == 1))
+      unchanged_item = Enum.find(seed_items, &(&1["quantity"] == 2))
+      deleted_item = Enum.find(seed_items, &(&1["quantity"] == 3))
+
+      update_conn =
+        request(:post, "/v1/subscriptions/#{subscription_id}", %{
+          "items" => [
+            %{"id" => updated_item["id"], "quantity" => "4"},
+            %{"id" => unchanged_item["id"], "quantity" => "2"},
+            %{"deleted" => "true", "id" => deleted_item["id"]},
+            %{"price" => price_id, "quantity" => "5"},
+            %{"price" => price_id, "quantity" => "6"}
+          ]
+        })
+
+      assert update_conn.status == 200
+      final_items = json_response(update_conn)["items"]["data"]
+      final_by_id = Map.new(final_items, &{&1["id"], &1})
+
+      assert final_by_id[updated_item["id"]]["quantity"] == 4
+
+      assert Map.take(final_by_id[unchanged_item["id"]], ["created", "id", "quantity"]) ==
+               Map.take(unchanged_item, ["created", "id", "quantity"])
+
+      refute Map.has_key?(final_by_id, deleted_item["id"])
+      assert final_items |> Enum.take(-2) |> Enum.map(& &1["quantity"]) == [5, 6]
+    end
+
     test "rejects a foreign item update before applying any mutations", %{
       customer_id: customer_id,
       price_id: price_id,

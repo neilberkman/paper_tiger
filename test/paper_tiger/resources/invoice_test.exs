@@ -61,11 +61,42 @@ defmodule PaperTiger.Resources.InvoiceTest do
     Jason.decode!(conn.resp_body)
   end
 
-  defp proration_amounts_by_price_and_sign(lines) do
-    Map.new(lines, fn line ->
-      sign = if line["amount"] < 0, do: :credit, else: :charge
-      {{line["price"]["id"], sign}, line["amount"]}
+  defp assert_proration_lines_agree(preview_lines, actual_lines) do
+    preview = proration_projections(preview_lines)
+    actual = proration_projections(actual_lines)
+
+    assert Enum.map(preview, &Map.delete(&1, :amount)) ==
+             Enum.map(actual, &Map.delete(&1, :amount))
+
+    Enum.zip(preview, actual)
+    |> Enum.each(fn {preview_line, actual_line} ->
+      assert abs(preview_line.amount - actual_line.amount) <= 1
     end)
+  end
+
+  defp proration_projections(lines) do
+    lines
+    |> Enum.filter(& &1["proration"])
+    |> Enum.map(fn line ->
+      %{
+        amount: line["amount"],
+        currency: line["currency"],
+        price: line["price"]["id"],
+        quantity: line["quantity"],
+        sign: if(line["amount"] < 0, do: :credit, else: :charge)
+      }
+    end)
+    |> Enum.sort_by(&{&1.price, &1.sign})
+  end
+
+  defp assert_invoice_line_surfaces_agree(invoice) do
+    embedded_lines = Enum.sort_by(invoice["lines"]["data"], & &1["id"])
+    lines_conn = request(:get, "/v1/invoices/#{invoice["id"]}/lines")
+
+    assert lines_conn.status == 200
+    listed_lines = lines_conn |> json_response() |> Map.fetch!("data") |> Enum.sort_by(& &1["id"])
+    assert listed_lines == embedded_lines
+    assert Enum.sum(Enum.map(listed_lines, & &1["amount"])) == invoice["total"]
   end
 
   # Helper to create a customer for testing
@@ -1675,7 +1706,7 @@ defmodule PaperTiger.Resources.InvoiceTest do
       }
     end
 
-    test "previews invoice with proposed item changes", ctx do
+    test "an upgrade preview agrees with the generated proration invoice", ctx do
       existing_item = hd(ctx.subscription["items"]["data"])
 
       conn =
@@ -1715,6 +1746,24 @@ defmodule PaperTiger.Resources.InvoiceTest do
       assert invoice["currency"] == "usd"
       assert invoice["total"] == regular["amount"] + credit["amount"] + charge["amount"]
       assert invoice["amount_due"] == invoice["total"]
+
+      update_conn =
+        request(:post, "/v1/subscriptions/#{ctx.subscription["id"]}", %{
+          "items" => [
+            %{"deleted" => "true", "id" => existing_item["id"]},
+            %{"price" => ctx.new_price["id"], "quantity" => "3"}
+          ],
+          "proration_behavior" => "always_invoice"
+        })
+
+      assert update_conn.status == 200
+      updated = json_response(update_conn)
+      actual_conn = request(:get, "/v1/invoices/#{updated["latest_invoice"]}")
+      assert actual_conn.status == 200
+      actual_invoice = json_response(actual_conn)
+
+      assert_proration_lines_agree(proration_lines, actual_invoice["lines"]["data"])
+      assert_invoice_line_surfaces_agree(actual_invoice)
     end
 
     test "returns 404 for non-existent subscription" do
@@ -1850,7 +1899,7 @@ defmodule PaperTiger.Resources.InvoiceTest do
       assert invoice["amount_remaining"] == 2_000
     end
 
-    test "net-credit preview and update agree on persisted proration lines", ctx do
+    test "a downgrade preview agrees with its net-credit proration invoice", ctx do
       expensive_price =
         PaperTiger.TestHelpers.create_price(ctx.product["id"],
           unit_amount: 10_000,
@@ -1921,17 +1970,8 @@ defmodule PaperTiger.Resources.InvoiceTest do
       assert invoice["paid"] == true
       assert invoice["status"] == "paid"
 
-      preview_amounts = proration_amounts_by_price_and_sign(preview_prorations)
-      actual_amounts = proration_amounts_by_price_and_sign(actual_prorations)
-
-      Enum.each(preview_amounts, fn {key, preview_amount} ->
-        assert abs(Map.fetch!(actual_amounts, key) - preview_amount) <= 1
-      end)
-
-      lines_conn = request(:get, "/v1/invoices/#{invoice["id"]}/lines")
-      assert lines_conn.status == 200
-      listed_lines = json_response(lines_conn)["data"]
-      assert Enum.sort(Enum.map(listed_lines, & &1["id"])) == Enum.sort(Enum.map(actual_prorations, & &1["id"]))
+      assert_proration_lines_agree(preview_prorations, actual_prorations)
+      assert_invoice_line_surfaces_agree(invoice)
     end
   end
 
