@@ -96,7 +96,6 @@ defmodule PaperTiger.MixProject do
       {:hackney, "~> 1.24 or ~> 4.0", optional: true},
 
       # Testing/dev
-      {:bypass, "~> 2.1", only: :test},
       {:mox, "~> 1.2", only: :test},
       {:stripity_stripe, "~> 3.3", only: :test}
     ] ++
