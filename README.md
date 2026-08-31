@@ -110,7 +110,7 @@ definition can be repointed at PaperTiger without changing anything else.
 
 ### Node, via Testcontainers
 
-[`@neilberkman/papertiger-testcontainers`](clients/testcontainers-node) handles
+[`@neilberkman/papertiger-testcontainers`](https://www.npmjs.com/package/@neilberkman/papertiger-testcontainers) handles
 container lifecycle and exposes the clock controls:
 
 ```ts
