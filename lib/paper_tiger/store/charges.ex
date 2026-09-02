@@ -30,4 +30,10 @@ defmodule PaperTiger.Store.Charges do
     table: :paper_tiger_charges,
     resource: "charge",
     prefix: "ch"
+
+  @deprecated "Use find_by/2"
+  def find_by_customer(value), do: find_by(:customer, value)
+
+  @deprecated "Use find_by/2"
+  def find_by_payment_intent(value), do: find_by(:payment_intent, value)
 end

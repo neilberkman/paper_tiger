@@ -30,4 +30,10 @@ defmodule PaperTiger.Store.InvoiceItems do
     table: :paper_tiger_invoice_items,
     resource: "invoice_item",
     prefix: "ii"
+
+  @deprecated "Use find_by/2"
+  def find_by_invoice(value), do: find_by(:invoice, value)
+
+  @deprecated "Use find_by/2"
+  def find_by_customer(value), do: find_by(:customer, value)
 end

@@ -64,4 +64,7 @@ defmodule PaperTiger.Store.SubscriptionItems do
   def handle_call(msg, from, state) do
     super(msg, from, state)
   end
+
+  @deprecated "Use find_by/2"
+  def find_by_subscription(value), do: find_by(:subscription, value)
 end

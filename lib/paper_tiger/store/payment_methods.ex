@@ -65,4 +65,7 @@ defmodule PaperTiger.Store.PaymentMethods do
       [] -> {:error, :not_found}
     end
   end
+
+  @deprecated "Use find_by/2"
+  def find_by_customer(value), do: find_by(:customer, value)
 end

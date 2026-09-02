@@ -30,4 +30,7 @@ defmodule PaperTiger.Store.Events do
     table: :paper_tiger_events,
     resource: "event",
     prefix: "evt"
+
+  @deprecated "Use find_by/2"
+  def find_by_type(value), do: find_by(:type, value)
 end

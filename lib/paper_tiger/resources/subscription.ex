@@ -1052,7 +1052,7 @@ defmodule PaperTiger.Resources.Subscription do
       price_id = get_item_field(item, :price)
       quantity = item |> get_item_field(:quantity, 1) |> to_integer()
 
-      case Prices.get(price_id) do
+      case Prices.get_or_plan(to_string(price_id)) do
         {:ok, price} -> acc + (price.unit_amount || 0) * quantity
         _ -> acc
       end

@@ -30,4 +30,7 @@ defmodule PaperTiger.Store.TaxRates do
     table: :paper_tiger_tax_rates,
     resource: "tax_rate",
     prefix: "txr"
+
+  @deprecated "Use find_by/2"
+  def find_active, do: find_by(:active, true)
 end

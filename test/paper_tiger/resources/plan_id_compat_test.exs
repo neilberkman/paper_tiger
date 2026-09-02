@@ -58,6 +58,32 @@ defmodule PaperTiger.Resources.PlanIdCompatTest do
     assert line["amount_total"] == 5000
   end
 
+  test "a subscription created from a plan invoices the plan amount", %{customer: customer, plan: plan} do
+    subscription =
+      create("/v1/subscriptions", %{
+        "customer" => customer["id"],
+        "items" => [%{"price" => plan["id"], "quantity" => 2}],
+        "payment_behavior" => "default_incomplete"
+      })
+
+    [item] = subscription["items"]["data"]
+    assert item["price"]["id"] == plan["id"]
+
+    conn = request(:get, "/v1/invoices/#{subscription["latest_invoice"]}")
+    assert conn.status == 200
+    # The initial invoice's currency is hardcoded to usd today, independent of plan IDs
+    assert json_response(conn)["amount_due"] == 5000
+
+    preview =
+      request(:get, "/v1/invoices/upcoming", %{"customer" => customer["id"], "subscription" => subscription["id"]})
+
+    assert preview.status == 200
+    # Preview currency is hardcoded to usd on this path today, independent of plan IDs
+    [line] = json_response(preview)["lines"]["data"]
+    assert line["price"]["id"] == plan["id"]
+    assert line["amount"] == 5000
+  end
+
   test "subscription schedule phases keep trial: false", %{customer: customer, price: price} do
     schedule =
       create("/v1/subscription_schedules", %{

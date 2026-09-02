@@ -30,4 +30,7 @@ defmodule PaperTiger.Store.BalanceTransactions do
     table: :paper_tiger_balance_transactions,
     resource: "balance_transaction",
     prefix: "txn"
+
+  @deprecated "Use find_by/2"
+  def find_by_source(value), do: find_by(:source, value)
 end

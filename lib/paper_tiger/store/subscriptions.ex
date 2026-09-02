@@ -31,4 +31,10 @@ defmodule PaperTiger.Store.Subscriptions do
     table: :paper_tiger_subscriptions,
     resource: "subscription",
     prefix: "sub"
+
+  @deprecated "Use find_by/2"
+  def find_by_customer(value), do: find_by(:customer, value)
+
+  @deprecated "Use find_by/2"
+  def find_active, do: find_by(:status, "active")
 end

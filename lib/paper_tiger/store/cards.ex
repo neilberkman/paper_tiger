@@ -30,4 +30,7 @@ defmodule PaperTiger.Store.Cards do
     table: :paper_tiger_cards,
     resource: "card",
     prefix: "card"
+
+  @deprecated "Use find_by/2"
+  def find_by_customer(value), do: find_by(:customer, value)
 end

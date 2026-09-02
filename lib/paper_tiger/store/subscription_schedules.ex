@@ -48,4 +48,10 @@ defmodule PaperTiger.Store.SubscriptionSchedules do
     :ets.match_object(@table, {{namespace, :_}, :_})
     |> Enum.map(fn {_id, schedule} -> schedule end)
   end
+
+  @deprecated "Use find_by/2"
+  def find_by_customer(value), do: find_by(:customer, value)
+
+  @deprecated "Use find_by/2"
+  def find_scheduled, do: find_by(:status, "not_started")
 end

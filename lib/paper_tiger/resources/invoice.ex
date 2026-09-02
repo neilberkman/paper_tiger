@@ -1056,7 +1056,7 @@ defmodule PaperTiger.Resources.Invoice do
     price_id = if is_map(price_id), do: price_id[:id] || price_id["id"], else: price_id
     quantity = sub_item[:quantity] || sub_item["quantity"] || 1
 
-    case Prices.get(to_string(price_id)) do
+    case Prices.get_or_plan(to_string(price_id)) do
       {:ok, price} ->
         %{price_id: price.id, product: price.product, quantity: quantity, unit_amount: price.unit_amount}
 
@@ -1110,7 +1110,7 @@ defmodule PaperTiger.Resources.Invoice do
         price_id = sub_item[:price] || sub_item.price
         price_id = if is_map(price_id), do: price_id[:id] || price_id["id"], else: price_id
 
-        case Prices.get(to_string(price_id)) do
+        case Prices.get_or_plan(to_string(price_id)) do
           {:ok, price} -> {:ok, price.id, price.unit_amount, price.product}
           _ -> {:ok, to_string(price_id), 0, nil}
         end
@@ -1276,7 +1276,7 @@ defmodule PaperTiger.Resources.Invoice do
   end
 
   defp build_preview_item(price_id, quantity) do
-    case Prices.get(to_string(price_id)) do
+    case Prices.get_or_plan(to_string(price_id)) do
       {:ok, price} ->
         %{price_id: price.id, product: price.product, quantity: quantity, unit_amount: price.unit_amount}
 

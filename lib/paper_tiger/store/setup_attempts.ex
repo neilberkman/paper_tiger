@@ -11,4 +11,7 @@ defmodule PaperTiger.Store.SetupAttempts do
     resource: "setup_attempt",
     plural: "setup_attempts",
     prefix: "setatt"
+
+  @deprecated "Use find_by/2"
+  def find_by_setup_intent(value), do: find_by(:setup_intent, value)
 end

@@ -8,4 +8,7 @@ defmodule PaperTiger.Store.Transfers do
     resource: "transfer",
     prefix: "tr",
     plural: "transfers"
+
+  @deprecated "Use find_by/2"
+  def find_by_destination(value), do: find_by(:destination, value)
 end

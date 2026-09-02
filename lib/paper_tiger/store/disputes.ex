@@ -31,4 +31,10 @@ defmodule PaperTiger.Store.Disputes do
     table: :paper_tiger_disputes,
     resource: "dispute",
     prefix: "dp"
+
+  @deprecated "Use find_by/2"
+  def find_by_charge(value), do: find_by(:charge, value)
+
+  @deprecated "Use find_by/2"
+  def find_by_status(value), do: find_by(:status, value)
 end

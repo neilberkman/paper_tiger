@@ -30,4 +30,7 @@ defmodule PaperTiger.Store.Reviews do
     table: :paper_tiger_reviews,
     resource: "review",
     prefix: "prv"
+
+  @deprecated "Use find_by/2"
+  def find_by_payment_intent(value), do: find_by(:payment_intent, value)
 end

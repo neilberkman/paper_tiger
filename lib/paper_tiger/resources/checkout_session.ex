@@ -694,7 +694,7 @@ defmodule PaperTiger.Resources.CheckoutSession do
             _ -> nil
           end
 
-        {:ok, full_price} = Prices.get(price_id)
+        full_price = Prices.get_or_placeholder(price_id) || %{}
 
         amount = Map.get(full_price, :unit_amount, 0)
         quantity = Map.get(item, :quantity, 1)

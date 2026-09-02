@@ -30,4 +30,7 @@ defmodule PaperTiger.Store.Coupons do
     table: :paper_tiger_coupons,
     resource: "coupon",
     prefix: "coupon"
+
+  @deprecated "Use find_by/2"
+  def find_active, do: find_by(:valid, true)
 end

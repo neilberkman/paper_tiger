@@ -26,8 +26,12 @@ defmodule PaperTiger.UserAdapters.AutoDiscoverTest do
       table = rest |> String.split(" ") |> hd()
 
       case get_in(schema(), [String.to_atom(table), user_id]) do
-        nil -> {:ok, %{columns: ["id"], rows: []}}
-        row -> {:ok, %{columns: Map.keys(row), rows: [Map.values(row)]}}
+        nil ->
+          {:ok, %{columns: ["id"], rows: []}}
+
+        row ->
+          {columns, values} = row |> Map.to_list() |> Enum.unzip()
+          {:ok, %{columns: columns, rows: [values]}}
       end
     end
 

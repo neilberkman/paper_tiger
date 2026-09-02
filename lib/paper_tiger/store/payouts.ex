@@ -30,4 +30,7 @@ defmodule PaperTiger.Store.Payouts do
     table: :paper_tiger_payouts,
     resource: "payout",
     prefix: "po"
+
+  @deprecated "Use find_by/2"
+  def find_by_status(value), do: find_by(:status, value)
 end

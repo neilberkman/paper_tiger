@@ -30,4 +30,7 @@ defmodule PaperTiger.Store.Customers do
     table: :paper_tiger_customers,
     resource: "customer",
     prefix: "cus"
+
+  @deprecated "Use find_by/2"
+  def find_by_email(value), do: find_by(:email, value)
 end

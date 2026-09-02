@@ -30,4 +30,7 @@ defmodule PaperTiger.Store.Products do
     table: :paper_tiger_products,
     resource: "product",
     prefix: "prod"
+
+  @deprecated "Use find_by/2"
+  def find_active, do: find_by(:active, true)
 end

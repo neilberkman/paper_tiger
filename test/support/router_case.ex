@@ -79,7 +79,7 @@ defmodule PaperTiger.RouterCase do
   def json_response(conn), do: Jason.decode!(conn.resp_body)
 
   defp build_conn(method, path, params, headers, :json) when method in [:get, :delete] do
-    put_headers(Plug.Test.conn(method, path, params), headers)
+    put_headers(Plug.Test.conn(method, with_query(path, params), ""), headers)
   end
 
   defp build_conn(method, path, params, headers, :json) do
@@ -88,19 +88,20 @@ defmodule PaperTiger.RouterCase do
     put_headers(conn, [{"content-type", "application/json"} | headers])
   end
 
+  defp build_conn(method, path, params, headers, :form) when method in [:get, :delete] do
+    put_headers(Plug.Test.conn(method, with_query(path, params), ""), headers)
+  end
+
   defp build_conn(method, path, params, headers, :form) do
-    encoded = if is_map(params), do: params_to_form_data(params), else: ""
-
-    {path, body} =
-      cond do
-        method in [:get, :delete] and encoded != "" -> {"#{path}?#{encoded}", ""}
-        method in [:get, :delete] -> {path, ""}
-        true -> {path, encoded}
-      end
-
+    body = if is_map(params), do: params_to_form_data(params), else: ""
     conn = Plug.Test.conn(method, path, body)
     put_headers(conn, [{"content-type", "application/x-www-form-urlencoded"} | headers])
   end
+
+  defp with_query(path, params) when is_map(params) and map_size(params) > 0,
+    do: "#{path}?#{params_to_form_data(params)}"
+
+  defp with_query(path, _params), do: path
 
   defp put_headers(conn, headers) do
     Enum.reduce(headers ++ PaperTiger.Test.sandbox_headers(), conn, fn {key, value}, acc ->

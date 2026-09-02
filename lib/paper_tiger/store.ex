@@ -168,10 +168,14 @@ defmodule PaperTiger.Store do
         if is_nil(value) do
           []
         else
+          # Rows are selected by namespace and compared with strict equality
+          # rather than placing `value` in the ETS match pattern, where a map
+          # would match partially and atoms like :_ would act as wildcards.
           namespace = current_namespace()
 
-          :ets.match_object(unquote(table), {{namespace, :_}, %{field => value}})
+          :ets.match_object(unquote(table), {{namespace, :_}, :_})
           |> Enum.map(fn {_key, item} -> item end)
+          |> Enum.filter(fn item -> Map.get(item, field) === value end)
         end
       end
     end

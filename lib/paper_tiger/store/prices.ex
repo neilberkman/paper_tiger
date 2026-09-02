@@ -99,4 +99,10 @@ defmodule PaperTiger.Store.Prices do
       type: "recurring"
     }
   end
+
+  @deprecated "Use find_by/2"
+  def find_by_product(value), do: find_by(:product, value)
+
+  @deprecated "Use find_by/2"
+  def find_active, do: find_by(:active, true)
 end

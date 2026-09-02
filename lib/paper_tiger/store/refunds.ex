@@ -30,4 +30,7 @@ defmodule PaperTiger.Store.Refunds do
     table: :paper_tiger_refunds,
     resource: "refund",
     prefix: "re"
+
+  @deprecated "Use find_by/2"
+  def find_by_charge(value), do: find_by(:charge, value)
 end

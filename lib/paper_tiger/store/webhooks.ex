@@ -30,4 +30,7 @@ defmodule PaperTiger.Store.Webhooks do
     table: :paper_tiger_webhooks,
     resource: "webhook_endpoint",
     prefix: "we"
+
+  @deprecated "Use find_by/2"
+  def find_active, do: find_by(:status, "enabled")
 end
