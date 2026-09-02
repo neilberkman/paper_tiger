@@ -1,27 +1,9 @@
 defmodule PaperTiger.Resources.PaymentLinkTest do
-  use ExUnit.Case, async: true
+  use PaperTiger.RouterCase, async: true, api_key: "sk_test_payment_link_key"
 
-  import PaperTiger.Test
-
-  alias PaperTiger.Router
   alias PaperTiger.Store.CheckoutSessions
 
   setup :checkout_paper_tiger
-
-  defp conn(method, path, params, headers) do
-    conn = Plug.Test.conn(method, path, params)
-
-    headers_with_defaults =
-      headers ++
-        [
-          {"content-type", "application/json"},
-          {"authorization", "Bearer sk_test_payment_link_key"}
-        ] ++ sandbox_headers()
-
-    Enum.reduce(headers_with_defaults, conn, fn {key, value}, acc ->
-      Plug.Conn.put_req_header(acc, key, value)
-    end)
-  end
 
   defp public_conn(method, path) do
     conn = Plug.Test.conn(method, path, nil)
@@ -31,19 +13,11 @@ defmodule PaperTiger.Resources.PaymentLinkTest do
     end)
   end
 
-  defp request(method, path, params \\ nil, headers \\ []) do
-    method
-    |> conn(path, params, headers)
-    |> Router.call([])
-  end
-
   defp public_request(method, path) do
     method
     |> public_conn(path)
     |> Router.call([])
   end
-
-  defp json_response(conn), do: Jason.decode!(conn.resp_body)
 
   describe "POST /v1/payment_links" do
     test "creates a payment link with hosted URL and normalized line items" do

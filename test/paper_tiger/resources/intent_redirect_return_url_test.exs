@@ -16,36 +16,9 @@ defmodule PaperTiger.Resources.IntentRedirectReturnUrlTest do
   model.
   """
 
-  use ExUnit.Case, async: true
-
-  import PaperTiger.Test
-
-  alias PaperTiger.Router
+  use PaperTiger.RouterCase, async: true, api_key: "sk_test_return_url_key"
 
   setup :checkout_paper_tiger
-
-  defp conn(method, path, params, headers) do
-    conn = Plug.Test.conn(method, path, params)
-
-    headers_with_defaults =
-      headers ++
-        [
-          {"content-type", "application/json"},
-          {"authorization", "Bearer sk_test_return_url_key"}
-        ] ++ sandbox_headers()
-
-    Enum.reduce(headers_with_defaults, conn, fn {key, value}, acc ->
-      Plug.Conn.put_req_header(acc, key, value)
-    end)
-  end
-
-  defp request(method, path, params \\ nil, headers \\ []) do
-    method
-    |> conn(path, params, headers)
-    |> Router.call([])
-  end
-
-  defp json_response(conn), do: Jason.decode!(conn.resp_body)
 
   defp create_payment_intent(automatic_payment_methods) do
     params =

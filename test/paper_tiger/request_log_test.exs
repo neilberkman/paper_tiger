@@ -3,36 +3,9 @@ defmodule PaperTiger.RequestLogTest do
   Tests for inbound request capture helpers.
   """
 
-  use ExUnit.Case, async: true
+  use PaperTiger.RouterCase, async: true, api_key: "sk_test_request_log"
 
-  import PaperTiger.Test
-
-  alias PaperTiger.Router
   alias PaperTiger.Store.Requests
-
-  defp conn(method, path, params, headers) do
-    conn = Plug.Test.conn(method, path, params)
-
-    headers_with_defaults =
-      headers ++
-        [
-          {"content-type", "application/json"},
-          {"authorization", "Bearer sk_test_request_log"}
-        ] ++ sandbox_headers()
-
-    Enum.reduce(headers_with_defaults, conn, fn {key, value}, acc ->
-      Plug.Conn.put_req_header(acc, key, value)
-    end)
-  end
-
-  defp request(method, path, params, headers \\ []) do
-    conn(method, path, params, headers)
-    |> Router.call([])
-  end
-
-  defp json_response(conn) do
-    Jason.decode!(conn.resp_body)
-  end
 
   describe "request spy" do
     setup :checkout_paper_tiger

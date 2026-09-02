@@ -11,11 +11,7 @@ defmodule PaperTiger.Resources.SubscriptionTest do
   6. GET /v1/subscriptions - List subscriptions
   """
 
-  use ExUnit.Case, async: true
-
-  import PaperTiger.Test
-
-  alias PaperTiger.Router
+  use PaperTiger.RouterCase, async: true, encoding: :form
 
   setup_all do
     # PaperTiger is auto-started by the test suite, just return :ok
@@ -23,94 +19,6 @@ defmodule PaperTiger.Resources.SubscriptionTest do
   end
 
   setup :checkout_paper_tiger
-
-  # Helper function to create a test connection with proper setup
-  defp conn(method, path, params, headers) do
-    # For GET/DELETE requests, put params in query string
-    # For POST/PUT requests, put params in body
-    {final_path, body} =
-      case method do
-        m when m in [:get, :delete] ->
-          if params && is_map(params) do
-            query_string = params_to_form_data(params)
-            {"#{path}?#{query_string}", ""}
-          else
-            {path, ""}
-          end
-
-        _ ->
-          body =
-            if params && is_map(params) do
-              params_to_form_data(params)
-            else
-              ""
-            end
-
-          {path, body}
-      end
-
-    conn = Plug.Test.conn(method, final_path, body)
-
-    headers_with_defaults =
-      headers ++
-        [
-          {"content-type", "application/x-www-form-urlencoded"},
-          {"authorization", "Bearer sk_test_key"}
-        ] ++ sandbox_headers()
-
-    Enum.reduce(headers_with_defaults, conn, fn {key, value}, acc ->
-      Plug.Conn.put_req_header(acc, key, value)
-    end)
-  end
-
-  # Helper function to convert map params to form data (flat with bracket notation)
-  defp params_to_form_data(params) do
-    params
-    |> flatten_params()
-    |> Enum.map_join("&", fn {k, v} -> "#{k}=#{URI.encode_www_form(to_string(v))}" end)
-  end
-
-  # Flatten nested maps into bracket notation for form encoding
-  defp flatten_params(params, parent_key \\ "") do
-    Enum.flat_map(params, fn
-      {key, value} when is_map(value) ->
-        new_key = if parent_key == "", do: key, else: "#{parent_key}[#{key}]"
-        flatten_params(value, new_key)
-
-      {key, value} when is_list(value) ->
-        new_key = if parent_key == "", do: key, else: "#{parent_key}[#{key}]"
-
-        value
-        |> Enum.with_index(fn item, idx ->
-          flatten_list_item(item, new_key, idx)
-        end)
-        |> List.flatten()
-
-      {key, value} ->
-        new_key = if parent_key == "", do: key, else: "#{parent_key}[#{key}]"
-        [{new_key, value}]
-    end)
-  end
-
-  # Helper to flatten a list item for params
-  defp flatten_list_item(item, new_key, idx) when is_map(item) do
-    flatten_params(item, "#{new_key}[#{idx}]")
-  end
-
-  defp flatten_list_item(item, new_key, _idx) do
-    {"#{new_key}[]", item}
-  end
-
-  # Helper function to run a request through the router
-  defp request(method, path, params) do
-    conn = conn(method, path, params, [])
-    Router.call(conn, [])
-  end
-
-  # Helper function to parse JSON response
-  defp json_response(conn) do
-    Jason.decode!(conn.resp_body)
-  end
 
   defp create_test_subscription(customer_id, price_id) do
     conn =
