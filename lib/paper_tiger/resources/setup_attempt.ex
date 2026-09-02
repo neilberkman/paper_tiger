@@ -33,9 +33,4 @@ defmodule PaperTiger.Resources.SetupAttempt do
 
     json_response(conn, 200, result)
   end
-
-  defp maybe_expand(result, params) do
-    expand_params = parse_expand_params(params)
-    PaperTiger.Hydrator.hydrate(result, expand_params)
-  end
 end

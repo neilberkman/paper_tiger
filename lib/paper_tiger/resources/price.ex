@@ -210,11 +210,6 @@ defmodule PaperTiger.Resources.Price do
     }
   end
 
-  defp maybe_expand(price, params) do
-    expand_params = parse_expand_params(params)
-    PaperTiger.Hydrator.hydrate(price, expand_params)
-  end
-
   # Build recurring structure with defaults (matching Stripe API behavior)
   defp build_recurring(nil), do: nil
 

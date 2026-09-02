@@ -414,9 +414,6 @@ defmodule PaperTiger.Resources.PaymentIntent do
     end
   end
 
-  defp respond_to_search({:ok, result}, conn), do: json_response(conn, 200, result)
-  defp respond_to_search({:error, error}, conn), do: error_response(conn, error)
-
   defp validate_cancellation_reason(nil), do: {:ok, nil}
   defp validate_cancellation_reason(reason) when reason in @cancellation_reasons, do: {:ok, reason}
   defp validate_cancellation_reason(reason), do: {:error, :invalid_cancellation_reason, reason}
@@ -495,11 +492,6 @@ defmodule PaperTiger.Resources.PaymentIntent do
     do: "requires_confirmation"
 
   defp initial_status(_params), do: "requires_payment_method"
-
-  defp maybe_expand(payment_intent, params) do
-    expand_params = parse_expand_params(params)
-    PaperTiger.Hydrator.hydrate(payment_intent, expand_params)
-  end
 
   defp generate_client_secret do
     random_part =

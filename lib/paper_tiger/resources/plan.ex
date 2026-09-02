@@ -189,9 +189,4 @@ defmodule PaperTiger.Resources.Plan do
       usage_type: Map.get(params, :usage_type, "licensed")
     }
   end
-
-  defp maybe_expand(plan, params) do
-    expand_params = parse_expand_params(params)
-    PaperTiger.Hydrator.hydrate(plan, expand_params)
-  end
 end

@@ -241,9 +241,4 @@ defmodule PaperTiger.Resources.Coupon do
       {:ok, params}
     end
   end
-
-  defp maybe_expand(coupon, params) do
-    expand_params = parse_expand_params(params)
-    PaperTiger.Hydrator.hydrate(coupon, expand_params)
-  end
 end

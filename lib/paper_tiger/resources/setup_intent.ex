@@ -693,11 +693,6 @@ defmodule PaperTiger.Resources.SetupIntent do
   defp initial_status(%{payment_method: payment_method}) when is_binary(payment_method), do: "requires_confirmation"
   defp initial_status(_params), do: "requires_payment_method"
 
-  defp maybe_expand(setup_intent, params) do
-    expand_params = parse_expand_params(params)
-    PaperTiger.Hydrator.hydrate(setup_intent, expand_params)
-  end
-
   defp generate_client_secret do
     random_part =
       :crypto.strong_rand_bytes(16)

@@ -130,12 +130,6 @@ defmodule PaperTiger.Resources.BillingPortalConfiguration do
     }
   end
 
-  defp maybe_expand(configuration, params) do
-    params
-    |> parse_expand_params()
-    |> then(&PaperTiger.Hydrator.hydrate(configuration, &1))
-  end
-
   defp normalize_update_params(params) do
     params
     |> normalize_boolean_field(:active)

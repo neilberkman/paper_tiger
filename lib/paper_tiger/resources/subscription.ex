@@ -376,9 +376,6 @@ defmodule PaperTiger.Resources.Subscription do
     end
   end
 
-  defp respond_to_search({:ok, result}, conn), do: json_response(conn, 200, result)
-  defp respond_to_search({:error, error}, conn), do: error_response(conn, error)
-
   defp build_subscription(params) do
     now = PaperTiger.now()
     trial_end = calculate_trial_end(params, now)
@@ -1168,10 +1165,5 @@ defmodule PaperTiger.Resources.Subscription do
       end
 
     Map.put(subscription, :latest_invoice, latest_invoice_id)
-  end
-
-  defp maybe_expand(subscription, params) do
-    expand_params = parse_expand_params(params)
-    PaperTiger.Hydrator.hydrate(subscription, expand_params)
   end
 end

@@ -105,9 +105,4 @@ defmodule PaperTiger.Resources.Dispute do
   end
 
   ## Private Functions
-
-  defp maybe_expand(dispute, params) do
-    expand_params = parse_expand_params(params)
-    PaperTiger.Hydrator.hydrate(dispute, expand_params)
-  end
 end

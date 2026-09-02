@@ -182,9 +182,6 @@ defmodule PaperTiger.Resources.Charge do
     |> respond_to_search(conn)
   end
 
-  defp respond_to_search({:ok, result}, conn), do: json_response(conn, 200, result)
-  defp respond_to_search({:error, error}, conn), do: error_response(conn, error)
-
   defp build_charge(params) do
     amount = get_integer(params, :amount)
 
@@ -217,10 +214,5 @@ defmodule PaperTiger.Resources.Charge do
       statement_descriptor: Map.get(params, :statement_descriptor),
       status: Map.get(params, :status, "succeeded")
     }
-  end
-
-  defp maybe_expand(charge, params) do
-    expand_params = parse_expand_params(params)
-    PaperTiger.Hydrator.hydrate(charge, expand_params)
   end
 end

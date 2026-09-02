@@ -204,11 +204,6 @@ defmodule PaperTiger.Resources.Card do
     }
   end
 
-  defp maybe_expand(card, params) do
-    expand_params = parse_expand_params(params)
-    PaperTiger.Hydrator.hydrate(card, expand_params)
-  end
-
   defp generate_fingerprint do
     :crypto.hash(:sha256, "#{:os.system_time(:millisecond)}#{:rand.uniform(1_000_000)}")
     |> Base.encode16(case: :lower)

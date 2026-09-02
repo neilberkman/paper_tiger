@@ -167,9 +167,4 @@ defmodule PaperTiger.Resources.Webhook do
        |> Base.encode16(case: :lower)
        |> binary_part(0, 32))
   end
-
-  defp maybe_expand(webhook, params) do
-    expand_params = parse_expand_params(params)
-    PaperTiger.Hydrator.hydrate(webhook, expand_params)
-  end
 end

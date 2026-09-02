@@ -182,8 +182,6 @@ defmodule PaperTiger.Resources.Customer do
   end
 
   ## Private Functions
-  defp respond_to_search({:ok, result}, conn), do: json_response(conn, 200, result)
-  defp respond_to_search({:error, error}, conn), do: error_response(conn, error)
 
   # Use provided created timestamp or default to now
   defp build_customer(params) do
@@ -213,10 +211,5 @@ defmodule PaperTiger.Resources.Customer do
       shipping: Map.get(params, :shipping),
       tax_exempt: "none"
     }
-  end
-
-  defp maybe_expand(customer, params) do
-    expand_params = parse_expand_params(params)
-    PaperTiger.Hydrator.hydrate(customer, expand_params)
   end
 end

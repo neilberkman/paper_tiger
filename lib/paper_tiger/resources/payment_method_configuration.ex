@@ -246,9 +246,4 @@ defmodule PaperTiger.Resources.PaymentMethodConfiguration do
   end
 
   defp param(_map, _key, default), do: default
-
-  defp maybe_expand(payment_method_configuration, params) do
-    expand_params = parse_expand_params(params)
-    PaperTiger.Hydrator.hydrate(payment_method_configuration, expand_params)
-  end
 end

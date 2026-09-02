@@ -197,9 +197,4 @@ defmodule PaperTiger.Resources.Product do
 
   defp maybe_boolean(nil), do: nil
   defp maybe_boolean(value), do: to_boolean(value)
-
-  defp maybe_expand(product, params) do
-    expand_params = parse_expand_params(params)
-    PaperTiger.Hydrator.hydrate(product, expand_params)
-  end
 end

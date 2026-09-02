@@ -311,9 +311,4 @@ defmodule PaperTiger.Resources.Transfer do
     |> Map.put(:data, data)
     |> Map.put(:total_count, Map.get(list, :total_count, 0) + 1)
   end
-
-  defp maybe_expand(transfer, params) do
-    expand_params = parse_expand_params(params)
-    PaperTiger.Hydrator.hydrate(transfer, expand_params)
-  end
 end

@@ -254,9 +254,6 @@ defmodule PaperTiger.Resources.Invoice do
   defp to_string_or_nil(val) when is_binary(val), do: val
   defp to_string_or_nil(val) when is_atom(val), do: Atom.to_string(val)
 
-  defp respond_to_search({:ok, result}, conn), do: json_response(conn, 200, result)
-  defp respond_to_search({:error, error}, conn), do: error_response(conn, error)
-
   defp get_filtered_invoices(nil, nil, nil) do
     Invoices.all()
   end
@@ -888,11 +885,6 @@ defmodule PaperTiger.Resources.Invoice do
   end
 
   defp maybe_emit_invoice_paid(_old_invoice, _new_invoice), do: :ok
-
-  defp maybe_expand(invoice, params) do
-    expand_params = parse_expand_params(params)
-    PaperTiger.Hydrator.hydrate(invoice, expand_params)
-  end
 
   # Build default status_transitions based on invoice status
   defp build_default_status_transitions("paid", now) do

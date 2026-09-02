@@ -105,9 +105,4 @@ defmodule PaperTiger.Resources.PaymentMethodDomain do
       value -> to_boolean(value)
     end
   end
-
-  defp maybe_expand(payment_method_domain, params) do
-    expand_params = parse_expand_params(params)
-    PaperTiger.Hydrator.hydrate(payment_method_domain, expand_params)
-  end
 end

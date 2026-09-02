@@ -197,9 +197,4 @@ defmodule PaperTiger.Resources.InvoiceItem do
       unit_amount_excluding_tax: amount
     }
   end
-
-  defp maybe_expand(invoice_item, params) do
-    expand_params = parse_expand_params(params)
-    PaperTiger.Hydrator.hydrate(invoice_item, expand_params)
-  end
 end

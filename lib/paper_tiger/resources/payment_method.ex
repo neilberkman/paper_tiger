@@ -319,9 +319,4 @@ defmodule PaperTiger.Resources.PaymentMethod do
   defp detach_from_customer(payment_method) do
     %{payment_method | customer: nil}
   end
-
-  defp maybe_expand(payment_method, params) do
-    expand_params = parse_expand_params(params)
-    PaperTiger.Hydrator.hydrate(payment_method, expand_params)
-  end
 end

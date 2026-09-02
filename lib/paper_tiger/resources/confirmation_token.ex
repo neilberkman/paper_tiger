@@ -277,9 +277,4 @@ defmodule PaperTiger.Resources.ConfirmationToken do
   end
 
   defp param(_map, _key, default), do: default
-
-  defp maybe_expand(token, params) do
-    expand_params = parse_expand_params(params)
-    PaperTiger.Hydrator.hydrate(token, expand_params)
-  end
 end

@@ -100,9 +100,4 @@ defmodule PaperTiger.Resources.Review do
   end
 
   ## Private Functions
-
-  defp maybe_expand(review, params) do
-    expand_params = parse_expand_params(params)
-    PaperTiger.Hydrator.hydrate(review, expand_params)
-  end
 end

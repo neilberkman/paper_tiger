@@ -76,7 +76,7 @@ defmodule PaperTiger.Resources.CheckoutSession do
       maybe_store_idempotency(conn, session)
 
       session
-      |> maybe_expand(conn.params)
+      |> expand_session(conn.params)
       |> then(&json_response(conn, 200, &1))
     else
       {:error, :invalid_params, field} ->
@@ -95,7 +95,7 @@ defmodule PaperTiger.Resources.CheckoutSession do
     case CheckoutSessions.get(id) do
       {:ok, session} ->
         session
-        |> maybe_expand(conn.params)
+        |> expand_session(conn.params)
         |> then(&json_response(conn, 200, &1))
 
       {:error, :not_found} ->
@@ -116,7 +116,7 @@ defmodule PaperTiger.Resources.CheckoutSession do
          {:ok, updated} <- update_session(session, conn.params),
          {:ok, updated} <- CheckoutSessions.update(updated) do
       updated
-      |> maybe_expand(conn.params)
+      |> expand_session(conn.params)
       |> then(&json_response(conn, 200, &1))
     else
       {:error, :not_found} ->
@@ -218,7 +218,7 @@ defmodule PaperTiger.Resources.CheckoutSession do
         )
 
         expired_session
-        |> maybe_expand(conn.params)
+        |> expand_session(conn.params)
         |> then(&json_response(conn, 200, &1))
 
       {:ok, %{status: status}} ->
@@ -266,7 +266,7 @@ defmodule PaperTiger.Resources.CheckoutSession do
         )
 
         completed_session
-        |> maybe_expand(conn.params)
+        |> expand_session(conn.params)
         |> then(&json_response(conn, 200, &1))
 
       {:ok, %{status: "complete"}} ->
@@ -489,7 +489,7 @@ defmodule PaperTiger.Resources.CheckoutSession do
     |> Enum.with_index()
     |> Enum.each(fn {item, index} ->
       price_id = Map.get(item, :price) || Map.get(item, "price")
-      price_object = fetch_price_object(price_id)
+      price_object = Prices.get_or_placeholder(price_id)
       quantity = Map.get(item, :quantity) || Map.get(item, "quantity") || 1
 
       subscription_item = %{
@@ -509,28 +509,6 @@ defmodule PaperTiger.Resources.CheckoutSession do
   end
 
   defp create_subscription_items_from_line_items(_subscription_id, _), do: :ok
-
-  defp fetch_price_object(price_id) when is_binary(price_id) do
-    case Prices.get(price_id) do
-      {:ok, price} -> price
-      {:error, :not_found} -> build_minimal_price_object(price_id)
-    end
-  end
-
-  defp fetch_price_object(%{} = price), do: price
-
-  defp fetch_price_object(_), do: nil
-
-  defp build_minimal_price_object(price_id) do
-    %{
-      active: true,
-      currency: "usd",
-      id: price_id,
-      livemode: false,
-      object: "price",
-      type: "recurring"
-    }
-  end
 
   defp create_payment_intent_from_session(session, payment_method) do
     now = PaperTiger.now()
@@ -947,7 +925,7 @@ defmodule PaperTiger.Resources.CheckoutSession do
   defp normalize_checkout_line_item_price(item) do
     case Map.get(item, :price) || Map.get(item, "price") do
       %{} = price -> price
-      price_id when is_binary(price_id) -> fetch_price_object(price_id)
+      price_id when is_binary(price_id) -> Prices.get_or_placeholder(price_id)
       _ -> build_price_from_price_data(item)
     end
   end
@@ -1069,7 +1047,7 @@ defmodule PaperTiger.Resources.CheckoutSession do
     "http://localhost:#{port}/checkout/#{session_id}/complete"
   end
 
-  defp maybe_expand(session, params) do
+  defp expand_session(session, params) do
     expand_params = parse_expand_params(params)
 
     session =

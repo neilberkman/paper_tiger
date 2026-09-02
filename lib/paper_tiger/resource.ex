@@ -127,6 +127,23 @@ defmodule PaperTiger.Resource do
   end
 
   @doc """
+  Hydrates a resource according to the `expand[]` params of a request.
+
+  Resources with no expandable fields pass through unchanged.
+  """
+  @spec maybe_expand(map(), map()) :: map()
+  def maybe_expand(resource, params) do
+    PaperTiger.Hydrator.hydrate(resource, parse_expand_params(params))
+  end
+
+  @doc """
+  Sends the result of `PaperTiger.Search.run/3` as an HTTP response.
+  """
+  @spec respond_to_search({:ok, map()} | {:error, PaperTiger.Error.t()}, Plug.Conn.t()) :: Plug.Conn.t()
+  def respond_to_search({:ok, result}, conn), do: json_response(conn, 200, result)
+  def respond_to_search({:error, error}, conn), do: error_response(conn, error)
+
+  @doc """
   Stores a response for idempotency if an idempotency key is present.
   """
   @spec maybe_store_idempotency(Plug.Conn.t(), map()) :: :ok

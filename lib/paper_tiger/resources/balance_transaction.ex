@@ -67,9 +67,4 @@ defmodule PaperTiger.Resources.BalanceTransaction do
   end
 
   ## Private Functions
-
-  defp maybe_expand(balance_transaction, params) do
-    expand_params = parse_expand_params(params)
-    PaperTiger.Hydrator.hydrate(balance_transaction, expand_params)
-  end
 end

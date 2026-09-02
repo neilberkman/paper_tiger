@@ -78,9 +78,4 @@ defmodule PaperTiger.Resources.ApplicationFee do
   end
 
   ## Private Functions
-
-  defp maybe_expand(fee, params) do
-    expand_params = parse_expand_params(params)
-    PaperTiger.Hydrator.hydrate(fee, expand_params)
-  end
 end

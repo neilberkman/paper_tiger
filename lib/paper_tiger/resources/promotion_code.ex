@@ -153,12 +153,6 @@ defmodule PaperTiger.Resources.PromotionCode do
     }
   end
 
-  defp maybe_expand(promotion_code, params) do
-    params
-    |> parse_expand_params()
-    |> then(&PaperTiger.Hydrator.hydrate(promotion_code, &1))
-  end
-
   defp generated_code do
     :crypto.strong_rand_bytes(6)
     |> Base.encode16(case: :upper)

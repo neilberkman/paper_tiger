@@ -68,9 +68,4 @@ defmodule PaperTiger.Resources.Event do
   end
 
   ## Private Functions
-
-  defp maybe_expand(event, params) do
-    expand_params = parse_expand_params(params)
-    PaperTiger.Hydrator.hydrate(event, expand_params)
-  end
 end

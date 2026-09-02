@@ -154,9 +154,4 @@ defmodule PaperTiger.Resources.TaxRate do
       tax_type: Map.get(params, :tax_type)
     }
   end
-
-  defp maybe_expand(tax_rate, params) do
-    expand_params = parse_expand_params(params)
-    PaperTiger.Hydrator.hydrate(tax_rate, expand_params)
-  end
 end

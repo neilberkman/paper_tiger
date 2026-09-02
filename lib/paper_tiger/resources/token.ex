@@ -173,9 +173,4 @@ defmodule PaperTiger.Resources.Token do
     :crypto.strong_rand_bytes(8)
     |> Base.encode16(case: :lower)
   end
-
-  defp maybe_expand(token, params) do
-    expand_params = parse_expand_params(params)
-    PaperTiger.Hydrator.hydrate(token, expand_params)
-  end
 end

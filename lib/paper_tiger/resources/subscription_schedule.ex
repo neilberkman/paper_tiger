@@ -1118,11 +1118,6 @@ defmodule PaperTiger.Resources.SubscriptionSchedule do
   defp subscription_for_source({:from_subscription, subscription}), do: subscription.id
   defp subscription_for_source(_source), do: nil
 
-  defp maybe_expand(schedule, params) do
-    expand_params = parse_expand_params(params)
-    PaperTiger.Hydrator.hydrate(schedule, expand_params)
-  end
-
   defp present?(value), do: not is_nil(value) and value != ""
 
   defp param(map, key, default \\ nil) when is_map(map) do

@@ -151,9 +151,4 @@ defmodule PaperTiger.Resources.Topup do
       transfer_group: Map.get(params, :transfer_group)
     }
   end
-
-  defp maybe_expand(topup, params) do
-    expand_params = parse_expand_params(params)
-    PaperTiger.Hydrator.hydrate(topup, expand_params)
-  end
 end

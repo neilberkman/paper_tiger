@@ -170,9 +170,4 @@ defmodule PaperTiger.Resources.Payout do
       type: Map.get(params, :type)
     }
   end
-
-  defp maybe_expand(payout, params) do
-    expand_params = parse_expand_params(params)
-    PaperTiger.Hydrator.hydrate(payout, expand_params)
-  end
 end

@@ -173,9 +173,4 @@ defmodule PaperTiger.Resources.Source do
       type: Map.get(params, :type)
     }
   end
-
-  defp maybe_expand(source, params) do
-    expand_params = parse_expand_params(params)
-    PaperTiger.Hydrator.hydrate(source, expand_params)
-  end
 end

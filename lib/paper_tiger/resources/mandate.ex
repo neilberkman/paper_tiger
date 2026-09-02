@@ -22,9 +22,4 @@ defmodule PaperTiger.Resources.Mandate do
         error_response(conn, PaperTiger.Error.not_found("mandate", id))
     end
   end
-
-  defp maybe_expand(mandate, params) do
-    expand_params = parse_expand_params(params)
-    PaperTiger.Hydrator.hydrate(mandate, expand_params)
-  end
 end

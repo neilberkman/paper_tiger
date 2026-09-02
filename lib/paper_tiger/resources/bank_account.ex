@@ -197,9 +197,4 @@ defmodule PaperTiger.Resources.BankAccount do
       status: "new"
     }
   end
-
-  defp maybe_expand(bank_account, params) do
-    expand_params = parse_expand_params(params)
-    PaperTiger.Hydrator.hydrate(bank_account, expand_params)
-  end
 end

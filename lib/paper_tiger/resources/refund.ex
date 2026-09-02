@@ -265,9 +265,4 @@ defmodule PaperTiger.Resources.Refund do
       _ -> Map.get(charge, :amount, 0)
     end
   end
-
-  defp maybe_expand(refund, params) do
-    expand_params = parse_expand_params(params)
-    PaperTiger.Hydrator.hydrate(refund, expand_params)
-  end
 end

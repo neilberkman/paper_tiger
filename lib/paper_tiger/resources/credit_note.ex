@@ -380,10 +380,4 @@ defmodule PaperTiger.Resources.CreditNote do
       url: url
     }
   end
-
-  defp maybe_expand(credit_note, params) do
-    params
-    |> parse_expand_params()
-    |> then(&PaperTiger.Hydrator.hydrate(credit_note, &1))
-  end
 end
