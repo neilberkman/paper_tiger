@@ -32,17 +32,7 @@ defmodule PaperTiger.Resources.PaymentMethodDomain do
   Retrieves a payment method domain by ID.
   """
   @spec retrieve(Plug.Conn.t(), String.t()) :: Plug.Conn.t()
-  def retrieve(conn, id) do
-    case PaymentMethodDomains.get(id) do
-      {:ok, payment_method_domain} ->
-        payment_method_domain
-        |> maybe_expand(conn.params)
-        |> then(&json_response(conn, 200, &1))
-
-      {:error, :not_found} ->
-        error_response(conn, PaperTiger.Error.not_found("payment_method_domain", id))
-    end
-  end
+  def retrieve(conn, id), do: retrieve_response(conn, PaymentMethodDomains, "payment_method_domain", id)
 
   @doc """
   Updates a payment method domain.

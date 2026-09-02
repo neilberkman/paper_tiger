@@ -77,17 +77,7 @@ defmodule PaperTiger.Resources.CreditNote do
   Retrieves a credit note.
   """
   @spec retrieve(Plug.Conn.t(), String.t()) :: Plug.Conn.t()
-  def retrieve(conn, id) do
-    case CreditNotes.get(id) do
-      {:ok, credit_note} ->
-        credit_note
-        |> maybe_expand(conn.params)
-        |> then(&json_response(conn, 200, &1))
-
-      {:error, :not_found} ->
-        error_response(conn, PaperTiger.Error.not_found("credit_note", id))
-    end
-  end
+  def retrieve(conn, id), do: retrieve_response(conn, CreditNotes, "credit_note", id)
 
   @doc """
   Updates a credit note's memo/metadata.

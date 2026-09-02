@@ -83,17 +83,7 @@ defmodule PaperTiger.Resources.PaymentMethod do
   Retrieves a payment method by ID.
   """
   @spec retrieve(Plug.Conn.t(), String.t()) :: Plug.Conn.t()
-  def retrieve(conn, id) do
-    case PaymentMethods.get(id) do
-      {:ok, payment_method} ->
-        payment_method
-        |> maybe_expand(conn.params)
-        |> then(&json_response(conn, 200, &1))
-
-      {:error, :not_found} ->
-        error_response(conn, PaperTiger.Error.not_found("payment_method", id))
-    end
-  end
+  def retrieve(conn, id), do: retrieve_response(conn, PaymentMethods, "payment_method", id)
 
   @doc """
   Updates a payment method.
@@ -133,21 +123,7 @@ defmodule PaperTiger.Resources.PaymentMethod do
   Returns a deletion confirmation object.
   """
   @spec delete(Plug.Conn.t(), String.t()) :: Plug.Conn.t()
-  def delete(conn, id) do
-    case PaymentMethods.get(id) do
-      {:ok, _payment_method} ->
-        :ok = PaymentMethods.delete(id)
-
-        json_response(conn, 200, %{
-          deleted: true,
-          id: id,
-          object: "payment_method"
-        })
-
-      {:error, :not_found} ->
-        error_response(conn, PaperTiger.Error.not_found("payment_method", id))
-    end
-  end
+  def delete(conn, id), do: delete_response(conn, PaymentMethods, "payment_method", id)
 
   @doc """
   Lists payment methods for a customer.

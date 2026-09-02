@@ -69,17 +69,7 @@ defmodule PaperTiger.Resources.TaxRate do
   Retrieves a tax rate by ID.
   """
   @spec retrieve(Plug.Conn.t(), String.t()) :: Plug.Conn.t()
-  def retrieve(conn, id) do
-    case TaxRates.get(id) do
-      {:ok, tax_rate} ->
-        tax_rate
-        |> maybe_expand(conn.params)
-        |> then(&json_response(conn, 200, &1))
-
-      {:error, :not_found} ->
-        error_response(conn, PaperTiger.Error.not_found("tax_rate", id))
-    end
-  end
+  def retrieve(conn, id), do: retrieve_response(conn, TaxRates, "tax_rate", id)
 
   @doc """
   Updates a tax rate.

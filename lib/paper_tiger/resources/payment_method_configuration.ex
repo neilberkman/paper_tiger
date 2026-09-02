@@ -91,17 +91,7 @@ defmodule PaperTiger.Resources.PaymentMethodConfiguration do
   Retrieves a payment method configuration by ID.
   """
   @spec retrieve(Plug.Conn.t(), String.t()) :: Plug.Conn.t()
-  def retrieve(conn, id) do
-    case PaymentMethodConfigurations.get(id) do
-      {:ok, payment_method_configuration} ->
-        payment_method_configuration
-        |> maybe_expand(conn.params)
-        |> then(&json_response(conn, 200, &1))
-
-      {:error, :not_found} ->
-        error_response(conn, PaperTiger.Error.not_found("payment_method_configuration", id))
-    end
-  end
+  def retrieve(conn, id), do: retrieve_response(conn, PaymentMethodConfigurations, "payment_method_configuration", id)
 
   @doc """
   Updates a payment method configuration.
@@ -238,12 +228,4 @@ defmodule PaperTiger.Resources.PaymentMethodConfiguration do
   defp present?(nil), do: false
   defp present?(""), do: false
   defp present?(_value), do: true
-
-  defp param(map, key, default \\ nil)
-
-  defp param(map, key, default) when is_map(map) and is_atom(key) do
-    Map.get(map, key) || Map.get(map, Atom.to_string(key)) || default
-  end
-
-  defp param(_map, _key, default), do: default
 end

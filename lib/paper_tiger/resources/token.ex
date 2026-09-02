@@ -74,17 +74,7 @@ defmodule PaperTiger.Resources.Token do
   Retrieves a token by ID.
   """
   @spec retrieve(Plug.Conn.t(), String.t()) :: Plug.Conn.t()
-  def retrieve(conn, id) do
-    case Tokens.get(id) do
-      {:ok, token} ->
-        token
-        |> maybe_expand(conn.params)
-        |> then(&json_response(conn, 200, &1))
-
-      {:error, :not_found} ->
-        error_response(conn, PaperTiger.Error.not_found("token", id))
-    end
-  end
+  def retrieve(conn, id), do: retrieve_response(conn, Tokens, "token", id)
 
   ## Private Functions
 

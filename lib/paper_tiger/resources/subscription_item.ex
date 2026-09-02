@@ -65,17 +65,7 @@ defmodule PaperTiger.Resources.SubscriptionItem do
   Retrieves a subscription item by ID.
   """
   @spec retrieve(Plug.Conn.t(), String.t()) :: Plug.Conn.t()
-  def retrieve(conn, id) do
-    case SubscriptionItems.get(id) do
-      {:ok, item} ->
-        item
-        |> maybe_expand(conn.params)
-        |> then(&json_response(conn, 200, &1))
-
-      {:error, :not_found} ->
-        error_response(conn, PaperTiger.Error.not_found("subscription_item", id))
-    end
-  end
+  def retrieve(conn, id), do: retrieve_response(conn, SubscriptionItems, "subscription_item", id)
 
   @doc """
   Updates a subscription item.
@@ -114,21 +104,7 @@ defmodule PaperTiger.Resources.SubscriptionItem do
   Returns a deletion confirmation object.
   """
   @spec delete(Plug.Conn.t(), String.t()) :: Plug.Conn.t()
-  def delete(conn, id) do
-    case SubscriptionItems.get(id) do
-      {:ok, _item} ->
-        :ok = SubscriptionItems.delete(id)
-
-        json_response(conn, 200, %{
-          deleted: true,
-          id: id,
-          object: "subscription_item"
-        })
-
-      {:error, :not_found} ->
-        error_response(conn, PaperTiger.Error.not_found("subscription_item", id))
-    end
-  end
+  def delete(conn, id), do: delete_response(conn, SubscriptionItems, "subscription_item", id)
 
   @doc """
   Lists all subscription items with pagination.

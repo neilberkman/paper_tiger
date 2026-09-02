@@ -11,15 +11,5 @@ defmodule PaperTiger.Resources.Mandate do
   Retrieves a mandate by ID.
   """
   @spec retrieve(Plug.Conn.t(), String.t()) :: Plug.Conn.t()
-  def retrieve(conn, id) do
-    case Mandates.get(id) do
-      {:ok, mandate} ->
-        mandate
-        |> maybe_expand(conn.params)
-        |> then(&json_response(conn, 200, &1))
-
-      {:error, :not_found} ->
-        error_response(conn, PaperTiger.Error.not_found("mandate", id))
-    end
-  end
+  def retrieve(conn, id), do: retrieve_response(conn, Mandates, "mandate", id)
 end

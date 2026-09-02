@@ -77,17 +77,7 @@ defmodule PaperTiger.Resources.BankAccount do
   Retrieves a bank account by ID.
   """
   @spec retrieve(Plug.Conn.t(), String.t()) :: Plug.Conn.t()
-  def retrieve(conn, id) do
-    case BankAccounts.get(id) do
-      {:ok, bank_account} ->
-        bank_account
-        |> maybe_expand(conn.params)
-        |> then(&json_response(conn, 200, &1))
-
-      {:error, :not_found} ->
-        error_response(conn, PaperTiger.Error.not_found("bank_account", id))
-    end
-  end
+  def retrieve(conn, id), do: retrieve_response(conn, BankAccounts, "bank_account", id)
 
   @doc """
   Updates a bank account.
@@ -132,21 +122,7 @@ defmodule PaperTiger.Resources.BankAccount do
   Returns a deletion confirmation object.
   """
   @spec delete(Plug.Conn.t(), String.t()) :: Plug.Conn.t()
-  def delete(conn, id) do
-    case BankAccounts.get(id) do
-      {:ok, _bank_account} ->
-        :ok = BankAccounts.delete(id)
-
-        json_response(conn, 200, %{
-          deleted: true,
-          id: id,
-          object: "bank_account"
-        })
-
-      {:error, :not_found} ->
-        error_response(conn, PaperTiger.Error.not_found("bank_account", id))
-    end
-  end
+  def delete(conn, id), do: delete_response(conn, BankAccounts, "bank_account", id)
 
   @doc """
   Lists all bank accounts for a customer with pagination.

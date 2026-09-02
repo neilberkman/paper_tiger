@@ -73,17 +73,7 @@ defmodule PaperTiger.Resources.SetupIntent do
   Retrieves a setup intent by ID.
   """
   @spec retrieve(Plug.Conn.t(), String.t()) :: Plug.Conn.t()
-  def retrieve(conn, id) do
-    case SetupIntents.get(id) do
-      {:ok, setup_intent} ->
-        setup_intent
-        |> maybe_expand(conn.params)
-        |> then(&json_response(conn, 200, &1))
-
-      {:error, :not_found} ->
-        error_response(conn, PaperTiger.Error.not_found("setup_intent", id))
-    end
-  end
+  def retrieve(conn, id), do: retrieve_response(conn, SetupIntents, "setup_intent", id)
 
   @doc """
   Updates a setup intent.

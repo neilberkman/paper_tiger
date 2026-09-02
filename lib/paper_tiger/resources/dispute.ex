@@ -38,17 +38,7 @@ defmodule PaperTiger.Resources.Dispute do
   Retrieves a dispute by ID.
   """
   @spec retrieve(Plug.Conn.t(), String.t()) :: Plug.Conn.t()
-  def retrieve(conn, id) do
-    case Disputes.get(id) do
-      {:ok, dispute} ->
-        dispute
-        |> maybe_expand(conn.params)
-        |> then(&json_response(conn, 200, &1))
-
-      {:error, :not_found} ->
-        error_response(conn, PaperTiger.Error.not_found("dispute", id))
-    end
-  end
+  def retrieve(conn, id), do: retrieve_response(conn, Disputes, "dispute", id)
 
   @doc """
   Updates a dispute.

@@ -963,7 +963,7 @@ defmodule PaperTiger.Resources.CheckoutSession do
   defp price_type(false), do: "one_time"
   defp price_type(_recurring), do: "recurring"
 
-  defp line_item_quantity(item), do: item |> value(:quantity) |> to_integer_value(1)
+  defp line_item_quantity(item), do: item |> value(:quantity) |> to_integer(1)
 
   defp line_item_unit_amount(item, price \\ nil) do
     item
@@ -979,7 +979,7 @@ defmodule PaperTiger.Resources.CheckoutSession do
       amount ->
         amount
     end
-    |> to_integer_value()
+    |> to_integer()
   end
 
   defp line_item_currency(item, price) do
@@ -1088,17 +1088,4 @@ defmodule PaperTiger.Resources.CheckoutSession do
   end
 
   defp value(_other, _key), do: nil
-
-  defp to_integer_value(value, default \\ 0)
-  defp to_integer_value(value, _default) when is_integer(value), do: value
-
-  defp to_integer_value(value, default) when is_binary(value) do
-    case Integer.parse(value) do
-      {integer, _} -> integer
-      :error -> default
-    end
-  end
-
-  defp to_integer_value(nil, default), do: default
-  defp to_integer_value(_value, default), do: default
 end

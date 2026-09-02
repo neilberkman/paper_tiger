@@ -66,17 +66,7 @@ defmodule PaperTiger.Resources.Topup do
   Retrieves a topup by ID.
   """
   @spec retrieve(Plug.Conn.t(), String.t()) :: Plug.Conn.t()
-  def retrieve(conn, id) do
-    case Topups.get(id) do
-      {:ok, topup} ->
-        topup
-        |> maybe_expand(conn.params)
-        |> then(&json_response(conn, 200, &1))
-
-      {:error, :not_found} ->
-        error_response(conn, PaperTiger.Error.not_found("topup", id))
-    end
-  end
+  def retrieve(conn, id), do: retrieve_response(conn, Topups, "topup", id)
 
   @doc """
   Updates a topup.

@@ -70,17 +70,7 @@ defmodule PaperTiger.Resources.InvoiceItem do
   Retrieves an invoice item by ID.
   """
   @spec retrieve(Plug.Conn.t(), String.t()) :: Plug.Conn.t()
-  def retrieve(conn, id) do
-    case InvoiceItems.get(id) do
-      {:ok, invoice_item} ->
-        invoice_item
-        |> maybe_expand(conn.params)
-        |> then(&json_response(conn, 200, &1))
-
-      {:error, :not_found} ->
-        error_response(conn, PaperTiger.Error.not_found("invoiceitem", id))
-    end
-  end
+  def retrieve(conn, id), do: retrieve_response(conn, InvoiceItems, "invoiceitem", id)
 
   @doc """
   Updates an invoice item.
@@ -114,21 +104,7 @@ defmodule PaperTiger.Resources.InvoiceItem do
   Returns a deletion confirmation object.
   """
   @spec delete(Plug.Conn.t(), String.t()) :: Plug.Conn.t()
-  def delete(conn, id) do
-    case InvoiceItems.get(id) do
-      {:ok, _invoice_item} ->
-        :ok = InvoiceItems.delete(id)
-
-        json_response(conn, 200, %{
-          deleted: true,
-          id: id,
-          object: "invoiceitem"
-        })
-
-      {:error, :not_found} ->
-        error_response(conn, PaperTiger.Error.not_found("invoiceitem", id))
-    end
-  end
+  def delete(conn, id), do: delete_response(conn, InvoiceItems, "invoiceitem", id)
 
   @doc """
   Lists all invoice items with pagination.

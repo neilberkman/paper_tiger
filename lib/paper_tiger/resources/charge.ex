@@ -100,17 +100,7 @@ defmodule PaperTiger.Resources.Charge do
   Retrieves a charge by ID.
   """
   @spec retrieve(Plug.Conn.t(), String.t()) :: Plug.Conn.t()
-  def retrieve(conn, id) do
-    case Charges.get(id) do
-      {:ok, charge} ->
-        charge
-        |> maybe_expand(conn.params)
-        |> then(&json_response(conn, 200, &1))
-
-      {:error, :not_found} ->
-        error_response(conn, PaperTiger.Error.not_found("charge", id))
-    end
-  end
+  def retrieve(conn, id), do: retrieve_response(conn, Charges, "charge", id)
 
   @doc """
   Updates a charge.

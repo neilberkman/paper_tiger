@@ -75,17 +75,7 @@ defmodule PaperTiger.Resources.Card do
   Retrieves a card by ID.
   """
   @spec retrieve(Plug.Conn.t(), String.t()) :: Plug.Conn.t()
-  def retrieve(conn, id) do
-    case Cards.get(id) do
-      {:ok, card} ->
-        card
-        |> maybe_expand(conn.params)
-        |> then(&json_response(conn, 200, &1))
-
-      {:error, :not_found} ->
-        error_response(conn, PaperTiger.Error.not_found("card", id))
-    end
-  end
+  def retrieve(conn, id), do: retrieve_response(conn, Cards, "card", id)
 
   @doc """
   Updates a card.
@@ -122,21 +112,7 @@ defmodule PaperTiger.Resources.Card do
   Returns a deletion confirmation object.
   """
   @spec delete(Plug.Conn.t(), String.t()) :: Plug.Conn.t()
-  def delete(conn, id) do
-    case Cards.get(id) do
-      {:ok, _card} ->
-        :ok = Cards.delete(id)
-
-        json_response(conn, 200, %{
-          deleted: true,
-          id: id,
-          object: "card"
-        })
-
-      {:error, :not_found} ->
-        error_response(conn, PaperTiger.Error.not_found("card", id))
-    end
-  end
+  def delete(conn, id), do: delete_response(conn, Cards, "card", id)
 
   @doc """
   Lists all cards for a customer with pagination.

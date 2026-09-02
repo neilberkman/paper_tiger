@@ -1119,8 +1119,4 @@ defmodule PaperTiger.Resources.SubscriptionSchedule do
   defp subscription_for_source(_source), do: nil
 
   defp present?(value), do: not is_nil(value) and value != ""
-
-  defp param(map, key, default \\ nil) when is_map(map) do
-    Map.get(map, key, Map.get(map, Atom.to_string(key), default))
-  end
 end

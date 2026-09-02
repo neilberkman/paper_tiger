@@ -43,17 +43,7 @@ defmodule PaperTiger.Resources.Transfer do
   Retrieves a transfer.
   """
   @spec retrieve(Plug.Conn.t(), String.t()) :: Plug.Conn.t()
-  def retrieve(conn, id) do
-    case Transfers.get(id) do
-      {:ok, transfer} ->
-        transfer
-        |> maybe_expand(conn.params)
-        |> then(&json_response(conn, 200, &1))
-
-      {:error, :not_found} ->
-        error_response(conn, PaperTiger.Error.not_found("transfer", id))
-    end
-  end
+  def retrieve(conn, id), do: retrieve_response(conn, Transfers, "transfer", id)
 
   @doc """
   Updates a transfer. Stripe only allows metadata updates; PaperTiger also keeps

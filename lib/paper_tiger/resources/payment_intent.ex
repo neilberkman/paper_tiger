@@ -90,17 +90,7 @@ defmodule PaperTiger.Resources.PaymentIntent do
   Retrieves a payment intent by ID.
   """
   @spec retrieve(Plug.Conn.t(), String.t()) :: Plug.Conn.t()
-  def retrieve(conn, id) do
-    case PaymentIntents.get(id) do
-      {:ok, payment_intent} ->
-        payment_intent
-        |> maybe_expand(conn.params)
-        |> then(&json_response(conn, 200, &1))
-
-      {:error, :not_found} ->
-        error_response(conn, PaperTiger.Error.not_found("payment_intent", id))
-    end
-  end
+  def retrieve(conn, id), do: retrieve_response(conn, PaymentIntents, "payment_intent", id)
 
   @doc """
   Updates a payment intent.

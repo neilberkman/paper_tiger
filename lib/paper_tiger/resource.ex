@@ -137,6 +137,39 @@ defmodule PaperTiger.Resource do
   end
 
   @doc """
+  Handles a standard retrieve request.
+
+  Looks up `id` in `store`, hydrates the result according to the request's
+  `expand[]` params, and sends it. Unknown IDs get Stripe's `resource_missing`
+  404 for `object`.
+  """
+  @spec retrieve_response(Plug.Conn.t(), module(), String.t(), String.t()) :: Plug.Conn.t()
+  def retrieve_response(conn, store, object, id) do
+    case store.get(id) do
+      {:ok, resource} -> json_response(conn, 200, maybe_expand(resource, conn.params))
+      {:error, :not_found} -> error_response(conn, PaperTiger.Error.not_found(object, id))
+    end
+  end
+
+  @doc """
+  Handles a standard delete request.
+
+  Deletes `id` from `store` and sends Stripe's deletion confirmation for
+  `object`. Unknown IDs get the `resource_missing` 404.
+  """
+  @spec delete_response(Plug.Conn.t(), module(), String.t(), String.t()) :: Plug.Conn.t()
+  def delete_response(conn, store, object, id) do
+    case store.get(id) do
+      {:ok, _resource} ->
+        :ok = store.delete(id)
+        json_response(conn, 200, %{deleted: true, id: id, object: object})
+
+      {:error, :not_found} ->
+        error_response(conn, PaperTiger.Error.not_found(object, id))
+    end
+  end
+
+  @doc """
   Sends the result of `PaperTiger.Search.run/3` as an HTTP response.
   """
   @spec respond_to_search({:ok, map()} | {:error, PaperTiger.Error.t()}, Plug.Conn.t()) :: Plug.Conn.t()
@@ -244,17 +277,42 @@ defmodule PaperTiger.Resource do
       to_integer(123) => 123
       to_integer("123") => 123
       to_integer(nil) => 0
+      to_integer("abc", 1) => 1
   """
-  def to_integer(value) when is_integer(value), do: value
+  def to_integer(value, default \\ 0)
 
-  def to_integer(value) when is_binary(value) do
+  def to_integer(value, _default) when is_integer(value), do: value
+
+  def to_integer(value, default) when is_binary(value) do
     case Integer.parse(value) do
       {num, _} -> num
-      :error -> 0
+      :error -> default
     end
   end
 
-  def to_integer(_), do: 0
+  def to_integer(_, default), do: default
+
+  @doc """
+  Gets a param by atom key, also accepting the string form of the key.
+
+  Nested form-encoded maps may arrive with string keys, so this checks both.
+  Treats `nil` and `false` as absent and returns `default`.
+
+  ## Examples
+
+      param(%{code: "X"}, :code)          # => "X"
+      param(%{"code" => "X"}, :code)      # => "X"
+      param(%{}, :code, "fallback")       # => "fallback"
+      param(nil, :code)                   # => nil
+  """
+  @spec param(term(), atom(), term()) :: term()
+  def param(map, key, default \\ nil)
+
+  def param(map, key, default) when is_map(map) and is_atom(key) do
+    Map.get(map, key) || Map.get(map, Atom.to_string(key)) || default
+  end
+
+  def param(_map, _key, default), do: default
 
   @doc """
   Gets an integer param from a map, with default value.

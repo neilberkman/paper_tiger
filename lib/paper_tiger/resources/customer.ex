@@ -74,17 +74,7 @@ defmodule PaperTiger.Resources.Customer do
   Retrieves a customer by ID.
   """
   @spec retrieve(Plug.Conn.t(), String.t()) :: Plug.Conn.t()
-  def retrieve(conn, id) do
-    case Customers.get(id) do
-      {:ok, customer} ->
-        customer
-        |> maybe_expand(conn.params)
-        |> then(&json_response(conn, 200, &1))
-
-      {:error, :not_found} ->
-        error_response(conn, PaperTiger.Error.not_found("customer", id))
-    end
-  end
+  def retrieve(conn, id), do: retrieve_response(conn, Customers, "customer", id)
 
   @doc """
   Updates a customer.

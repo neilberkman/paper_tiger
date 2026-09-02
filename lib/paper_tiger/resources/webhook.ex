@@ -65,17 +65,7 @@ defmodule PaperTiger.Resources.Webhook do
   Retrieves a webhook endpoint by ID.
   """
   @spec retrieve(Plug.Conn.t(), String.t()) :: Plug.Conn.t()
-  def retrieve(conn, id) do
-    case Webhooks.get(id) do
-      {:ok, webhook} ->
-        webhook
-        |> maybe_expand(conn.params)
-        |> then(&json_response(conn, 200, &1))
-
-      {:error, :not_found} ->
-        error_response(conn, PaperTiger.Error.not_found("webhook_endpoint", id))
-    end
-  end
+  def retrieve(conn, id), do: retrieve_response(conn, Webhooks, "webhook_endpoint", id)
 
   @doc """
   Updates a webhook endpoint.
@@ -107,21 +97,7 @@ defmodule PaperTiger.Resources.Webhook do
   Returns a deletion confirmation object.
   """
   @spec delete(Plug.Conn.t(), String.t()) :: Plug.Conn.t()
-  def delete(conn, id) do
-    case Webhooks.get(id) do
-      {:ok, _webhook} ->
-        :ok = Webhooks.delete(id)
-
-        json_response(conn, 200, %{
-          deleted: true,
-          id: id,
-          object: "webhook_endpoint"
-        })
-
-      {:error, :not_found} ->
-        error_response(conn, PaperTiger.Error.not_found("webhook_endpoint", id))
-    end
-  end
+  def delete(conn, id), do: delete_response(conn, Webhooks, "webhook_endpoint", id)
 
   @doc """
   Lists all webhook endpoints with pagination.
