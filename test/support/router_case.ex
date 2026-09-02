@@ -10,9 +10,10 @@ defmodule PaperTiger.RouterCase do
 
   - `:api_key` - bearer token sent with authenticated requests
     (default `"sk_test_key"`)
-  - `:encoding` - `:json` sends params as a JSON body; `:form` sends them
-    form-encoded, in the query string for GET and DELETE and in the body
-    otherwise (default `:json`)
+  - `:encoding` - `:json` sends params as a JSON body through `Plug.Parsers`;
+    `:form` sends them form-encoded, in the query string for GET and DELETE
+    and in the body otherwise. Both keep GET and DELETE params out of the body
+    (default `:json`)
 
   ## Example
 
@@ -77,8 +78,13 @@ defmodule PaperTiger.RouterCase do
   @spec json_response(Plug.Conn.t()) :: term()
   def json_response(conn), do: Jason.decode!(conn.resp_body)
 
+  defp build_conn(method, path, params, headers, :json) when method in [:get, :delete] do
+    put_headers(Plug.Test.conn(method, path, params), headers)
+  end
+
   defp build_conn(method, path, params, headers, :json) do
-    conn = Plug.Test.conn(method, path, params)
+    body = if is_map(params), do: Jason.encode!(params), else: ""
+    conn = Plug.Test.conn(method, path, body)
     put_headers(conn, [{"content-type", "application/json"} | headers])
   end
 

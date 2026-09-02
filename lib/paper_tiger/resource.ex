@@ -329,23 +329,31 @@ defmodule PaperTiger.Resource do
   Gets a param by atom key, also accepting the string form of the key.
 
   Nested form-encoded maps may arrive with string keys, so this checks both.
-  Treats `nil` and `false` as absent and returns `default`.
+  A missing key or a `nil` value yields `default`; `false` is a real value and
+  is returned as-is.
 
   ## Examples
 
       param(%{code: "X"}, :code)          # => "X"
       param(%{"code" => "X"}, :code)      # => "X"
       param(%{}, :code, "fallback")       # => "fallback"
+      param(%{trial: false}, :trial, true) # => false
       param(nil, :code)                   # => nil
   """
   @spec param(term(), atom(), term()) :: term()
   def param(map, key, default \\ nil)
 
   def param(map, key, default) when is_map(map) and is_atom(key) do
-    Map.get(map, key) || Map.get(map, Atom.to_string(key)) || default
+    case Map.get(map, key) do
+      nil -> present_or(Map.get(map, Atom.to_string(key)), default)
+      value -> value
+    end
   end
 
   def param(_map, _key, default), do: default
+
+  defp present_or(nil, default), do: default
+  defp present_or(value, _default), do: value
 
   @doc """
   Gets an integer param from a map, with default value.
