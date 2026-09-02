@@ -131,7 +131,7 @@ defmodule PaperTiger.Resources.Card do
     if customer_id do
       pagination_opts = parse_pagination_params(conn.params)
 
-      cards = Cards.find_by_customer(customer_id)
+      cards = Cards.find_by(:customer, customer_id)
 
       paginated_result =
         cards

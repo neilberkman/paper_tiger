@@ -128,7 +128,7 @@ defmodule PaperTiger.Resources.Source do
           Sources.list(pagination_opts)
 
         customer_id ->
-          sources = Sources.find_by_customer(customer_id)
+          sources = Sources.find_by(:customer, customer_id)
           PaperTiger.List.paginate(sources, Map.put(pagination_opts, :url, "/v1/sources"))
       end
 

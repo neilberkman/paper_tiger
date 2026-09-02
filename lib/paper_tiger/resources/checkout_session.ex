@@ -186,7 +186,7 @@ defmodule PaperTiger.Resources.CheckoutSession do
     # Fetch full price object from store to ensure all fields are present
     result =
       if customer_id = Map.get(conn.params, :customer) do
-        CheckoutSessions.find_by_customer(customer_id)
+        CheckoutSessions.find_by(:customer, customer_id)
         |> PaperTiger.List.paginate(Map.put(pagination_opts, :url, "/v1/checkout/sessions"))
       else
         CheckoutSessions.list(pagination_opts)
@@ -612,7 +612,7 @@ defmodule PaperTiger.Resources.CheckoutSession do
 
   defp maybe_pay_incomplete_subscription_invoice(customer_id, payment_method) do
     Logger.debug("Checking for incomplete subscriptions for customer: #{customer_id}")
-    subscriptions = Subscriptions.find_by_customer(customer_id)
+    subscriptions = Subscriptions.find_by(:customer, customer_id)
     Logger.debug("Found #{length(subscriptions)} subscriptions for customer #{customer_id}")
 
     incomplete_sub =

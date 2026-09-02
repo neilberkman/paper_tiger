@@ -201,7 +201,7 @@ defmodule PaperTiger.BillingEngine do
   end
 
   defp find_due_subscriptions(now) do
-    Subscriptions.find_active()
+    Subscriptions.find_by(:status, "active")
     |> Enum.filter(fn sub ->
       period_end = sub[:current_period_end] || sub["current_period_end"]
       period_end && period_end <= now

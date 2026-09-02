@@ -23,22 +23,11 @@ defmodule PaperTiger.Store.Sources do
       {:ok, source} = PaperTiger.Store.Sources.insert(source)
 
       # Query helpers (direct ETS access)
-      sources = PaperTiger.Store.Sources.find_by_customer("cus_123")
+      sources = PaperTiger.Store.Sources.find_by(:customer, "cus_123")
   """
 
   use PaperTiger.Store,
     table: :paper_tiger_sources,
     resource: "source",
     prefix: "src"
-
-  @doc """
-  Finds sources by customer ID.
-
-  **Direct ETS access** - does not go through GenServer.
-  """
-  @spec find_by_customer(String.t()) :: [map()]
-  def find_by_customer(customer_id) when is_binary(customer_id) do
-    :ets.match_object(@table, {:_, %{customer: customer_id}})
-    |> Enum.map(fn {_id, source} -> source end)
-  end
 end

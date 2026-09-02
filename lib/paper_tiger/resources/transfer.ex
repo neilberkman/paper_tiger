@@ -84,8 +84,7 @@ defmodule PaperTiger.Resources.Transfer do
     result =
       case Map.get(conn.params, :destination) do
         destination when is_binary(destination) and destination != "" ->
-          destination
-          |> Transfers.find_by_destination()
+          Transfers.find_by(:destination, destination)
           |> PaperTiger.List.paginate(Map.put(pagination_opts, :url, "/v1/transfers"))
 
         _ ->
@@ -165,8 +164,7 @@ defmodule PaperTiger.Resources.Transfer do
       {:ok, _transfer} ->
         pagination_opts = parse_pagination_params(conn.params)
 
-        transfer_id
-        |> TransferReversals.find_by_transfer()
+        TransferReversals.find_by(:transfer, transfer_id)
         |> PaperTiger.List.paginate(Map.put(pagination_opts, :url, "/v1/transfers/#{transfer_id}/reversals"))
         |> then(&json_response(conn, 200, &1))
 

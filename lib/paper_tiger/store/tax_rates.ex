@@ -23,22 +23,11 @@ defmodule PaperTiger.Store.TaxRates do
       {:ok, tax_rate} = PaperTiger.Store.TaxRates.insert(tax_rate)
 
       # Query helpers (direct ETS access)
-      active_rates = PaperTiger.Store.TaxRates.find_active()
+      active_rates = PaperTiger.Store.TaxRates.find_by(:active, true)
   """
 
   use PaperTiger.Store,
     table: :paper_tiger_tax_rates,
     resource: "tax_rate",
     prefix: "txr"
-
-  @doc """
-  Finds active tax rates.
-
-  **Direct ETS access** - does not go through GenServer.
-  """
-  @spec find_active() :: [map()]
-  def find_active do
-    :ets.match_object(@table, {:_, %{active: true}})
-    |> Enum.map(fn {_id, tax_rate} -> tax_rate end)
-  end
 end

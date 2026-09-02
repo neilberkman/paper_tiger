@@ -21,7 +21,7 @@ defmodule PaperTiger.Resources.SetupAttempt do
 
     setup_attempts =
       if setup_intent_id do
-        SetupAttempts.find_by_setup_intent(setup_intent_id)
+        SetupAttempts.find_by(:setup_intent, setup_intent_id)
       else
         SetupAttempts.list(%{limit: 100}).data
       end

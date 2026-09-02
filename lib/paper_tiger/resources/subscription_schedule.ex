@@ -235,7 +235,7 @@ defmodule PaperTiger.Resources.SubscriptionSchedule do
 
   defp phases_from_subscription(subscription) do
     items =
-      SubscriptionItems.find_by_subscription(subscription.id)
+      SubscriptionItems.find_by(:subscription, subscription.id)
       |> Enum.map(fn item ->
         %{
           price: price_id(item.price),
@@ -786,8 +786,7 @@ defmodule PaperTiger.Resources.SubscriptionSchedule do
   end
 
   defp replace_subscription_items(subscription_id, items) do
-    subscription_id
-    |> SubscriptionItems.find_by_subscription()
+    SubscriptionItems.find_by(:subscription, subscription_id)
     |> Enum.each(&SubscriptionItems.delete(&1.id))
 
     Enum.each(items, &SubscriptionItems.insert/1)

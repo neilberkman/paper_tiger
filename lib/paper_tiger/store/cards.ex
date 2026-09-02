@@ -23,22 +23,11 @@ defmodule PaperTiger.Store.Cards do
       {:ok, card} = PaperTiger.Store.Cards.insert(card)
 
       # Query helpers (direct ETS access)
-      cards = PaperTiger.Store.Cards.find_by_customer("cus_123")
+      cards = PaperTiger.Store.Cards.find_by(:customer, "cus_123")
   """
 
   use PaperTiger.Store,
     table: :paper_tiger_cards,
     resource: "card",
     prefix: "card"
-
-  @doc """
-  Finds cards by customer ID.
-
-  **Direct ETS access** - does not go through GenServer.
-  """
-  @spec find_by_customer(String.t()) :: [map()]
-  def find_by_customer(customer_id) when is_binary(customer_id) do
-    :ets.match_object(@table, {:_, %{customer: customer_id}})
-    |> Enum.map(fn {_id, card} -> card end)
-  end
 end

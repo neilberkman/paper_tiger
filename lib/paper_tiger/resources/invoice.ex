@@ -127,7 +127,7 @@ defmodule PaperTiger.Resources.Invoice do
     case Invoices.get(id) do
       {:ok, _invoice} ->
         json_response(conn, 200, %{
-          data: InvoiceItems.find_by_invoice(id),
+          data: InvoiceItems.find_by(:invoice, id),
           has_more: false,
           object: "list",
           url: "/v1/invoices/#{id}/lines"
@@ -260,36 +260,36 @@ defmodule PaperTiger.Resources.Invoice do
 
   # Additional fields
   defp get_filtered_invoices(customer_id, nil, nil) when is_binary(customer_id) do
-    Invoices.find_by_customer(customer_id)
+    Invoices.find_by(:customer, customer_id)
   end
 
   defp get_filtered_invoices(nil, status, nil) when is_binary(status) do
-    Invoices.find_by_status(status)
+    Invoices.find_by(:status, status)
   end
 
   defp get_filtered_invoices(nil, nil, subscription_id) when is_binary(subscription_id) do
-    Invoices.find_by_subscription(subscription_id)
+    Invoices.find_by(:subscription, subscription_id)
   end
 
   defp get_filtered_invoices(customer_id, status, nil) when is_binary(customer_id) and is_binary(status) do
-    Invoices.find_by_customer(customer_id)
+    Invoices.find_by(:customer, customer_id)
     |> Enum.filter(fn inv -> inv.status == status end)
   end
 
   defp get_filtered_invoices(customer_id, nil, subscription_id)
        when is_binary(customer_id) and is_binary(subscription_id) do
-    Invoices.find_by_customer(customer_id)
+    Invoices.find_by(:customer, customer_id)
     |> Enum.filter(fn inv -> inv.subscription == subscription_id end)
   end
 
   defp get_filtered_invoices(nil, status, subscription_id) when is_binary(status) and is_binary(subscription_id) do
-    Invoices.find_by_subscription(subscription_id)
+    Invoices.find_by(:subscription, subscription_id)
     |> Enum.filter(fn inv -> inv.status == status end)
   end
 
   defp get_filtered_invoices(customer_id, status, subscription_id)
        when is_binary(customer_id) and is_binary(status) and is_binary(subscription_id) do
-    Invoices.find_by_customer(customer_id)
+    Invoices.find_by(:customer, customer_id)
     |> Enum.filter(fn inv -> inv.status == status and inv.subscription == subscription_id end)
   end
 
@@ -345,7 +345,7 @@ defmodule PaperTiger.Resources.Invoice do
            {:ok, subscription} <- Subscriptions.get(subscription_id) do
         sd = param_value(conn.params, :subscription_details) || %{}
         proposed_items = param_value(sd, :items) || %{}
-        existing = SubscriptionItems.find_by_subscription(subscription_id)
+        existing = SubscriptionItems.find_by(:subscription, subscription_id)
         existing_resolved = Enum.map(existing, &resolve_item_for_preview/1)
         merged = merge_preview_items(subscription_id, proposed_items)
         invoice = build_preview_invoice(subscription, merged, existing_resolved)
@@ -672,7 +672,7 @@ defmodule PaperTiger.Resources.Invoice do
   end
 
   defp load_invoice_lines(invoice) do
-    lines = InvoiceItems.find_by_invoice(invoice.id)
+    lines = InvoiceItems.find_by(:invoice, invoice.id)
 
     %{
       invoice
@@ -1038,7 +1038,7 @@ defmodule PaperTiger.Resources.Invoice do
   defp load_items_for_preview(subscription_id, params) do
     case param_value(params, :subscription_items) do
       nil ->
-        SubscriptionItems.find_by_subscription(subscription_id)
+        SubscriptionItems.find_by(:subscription, subscription_id)
         |> Enum.map(&resolve_item_for_preview/1)
 
       proposed when is_map(proposed) ->
@@ -1049,7 +1049,7 @@ defmodule PaperTiger.Resources.Invoice do
         |> Enum.reject(&is_nil/1)
 
       _ ->
-        SubscriptionItems.find_by_subscription(subscription_id)
+        SubscriptionItems.find_by(:subscription, subscription_id)
         |> Enum.map(&resolve_item_for_preview/1)
     end
   end
@@ -1176,7 +1176,7 @@ defmodule PaperTiger.Resources.Invoice do
   end
 
   defp merge_preview_items(subscription_id, proposed_items) do
-    existing = SubscriptionItems.find_by_subscription(subscription_id)
+    existing = SubscriptionItems.find_by(:subscription, subscription_id)
     existing_by_id = map_existing_items_by_id(existing)
     proposed_list = normalize_proposed_preview_items(proposed_items)
     state = reduce_proposed_preview_items(proposed_list, existing_by_id)

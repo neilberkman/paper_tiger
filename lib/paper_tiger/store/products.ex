@@ -23,22 +23,11 @@ defmodule PaperTiger.Store.Products do
       {:ok, product} = PaperTiger.Store.Products.insert(product)
 
       # Query helpers (direct ETS access)
-      products = PaperTiger.Store.Products.find_active()
+      products = PaperTiger.Store.Products.find_by(:active, true)
   """
 
   use PaperTiger.Store,
     table: :paper_tiger_products,
     resource: "product",
     prefix: "prod"
-
-  @doc """
-  Finds all active products.
-
-  **Direct ETS access** - does not go through GenServer.
-  """
-  @spec find_active() :: [map()]
-  def find_active do
-    :ets.match_object(@table, {:_, %{active: true}})
-    |> Enum.map(fn {_id, product} -> product end)
-  end
 end

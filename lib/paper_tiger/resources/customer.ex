@@ -147,7 +147,7 @@ defmodule PaperTiger.Resources.Customer do
     result =
       case Map.get(conn.params, :email) do
         email when is_binary(email) and email != "" ->
-          customers = Customers.find_by_email(email)
+          customers = Customers.find_by(:email, email)
           PaperTiger.List.paginate(customers, Map.put(pagination_opts, :url, "/v1/customers"))
 
         _ ->

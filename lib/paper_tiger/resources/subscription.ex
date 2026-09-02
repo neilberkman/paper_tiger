@@ -151,7 +151,7 @@ defmodule PaperTiger.Resources.Subscription do
   @spec update(Plug.Conn.t(), String.t()) :: Plug.Conn.t()
   def update(conn, id) do
     with {:ok, existing} <- Subscriptions.get(id),
-         existing_items = SubscriptionItems.find_by_subscription(id),
+         existing_items = SubscriptionItems.find_by(:subscription, id),
          {:ok, item_operations} <-
            prepare_subscription_item_updates(id, existing_items, Map.get(conn.params, :items)),
          coerced_params = coerce_update_params(conn.params),
@@ -160,7 +160,7 @@ defmodule PaperTiger.Resources.Subscription do
          updated = maybe_activate_subscription_after_trial(updated),
          :ok <- apply_subscription_item_operations(id, item_operations),
          {:ok, updated} <- Subscriptions.update(updated) do
-      items_after_update = SubscriptionItems.find_by_subscription(id)
+      items_after_update = SubscriptionItems.find_by(:subscription, id)
       billable_items_changed = billable_items_changed?(existing_items, items_after_update)
       updated = maybe_create_proration_invoice(updated, conn.params, billable_items_changed, existing_items)
 
@@ -545,7 +545,7 @@ defmodule PaperTiger.Resources.Subscription do
 
   defp load_subscription_items(subscription) do
     items =
-      SubscriptionItems.find_by_subscription(subscription.id)
+      SubscriptionItems.find_by(:subscription, subscription.id)
       |> Enum.sort_by(& &1.created, :asc)
 
     %{
@@ -795,7 +795,7 @@ defmodule PaperTiger.Resources.Subscription do
   # charge to zero rather than inventing a negative payment.
   defp create_proration_invoice(subscription, params, pre_update_items) do
     proration_behavior = Map.get(params, :proration_behavior)
-    items = SubscriptionItems.find_by_subscription(subscription.id)
+    items = SubscriptionItems.find_by(:subscription, subscription.id)
     now = PaperTiger.now()
     invoice_id = generate_id("in")
     ratio = Proration.remaining_ratio(subscription, now)
@@ -1120,7 +1120,7 @@ defmodule PaperTiger.Resources.Subscription do
   defp build_initial_invoice_line_items(subscription, invoice_id) do
     now = PaperTiger.now()
 
-    SubscriptionItems.find_by_subscription(subscription.id)
+    SubscriptionItems.find_by(:subscription, subscription.id)
     |> Enum.sort_by(& &1.created, :asc)
     |> Enum.map(fn item ->
       price = item[:price] || %{}
@@ -1156,7 +1156,7 @@ defmodule PaperTiger.Resources.Subscription do
   # The full object is returned only when expand: ["latest_invoice"] is passed
   defp load_latest_invoice(subscription) do
     latest_invoice_id =
-      Invoices.find_by_subscription(subscription.id)
+      Invoices.find_by(:subscription, subscription.id)
       |> Enum.sort_by(& &1.created, :desc)
       |> List.first()
       |> case do

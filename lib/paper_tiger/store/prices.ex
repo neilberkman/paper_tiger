@@ -23,8 +23,8 @@ defmodule PaperTiger.Store.Prices do
       {:ok, price} = PaperTiger.Store.Prices.insert(price)
 
       # Query helpers (direct ETS access)
-      prices = PaperTiger.Store.Prices.find_by_product("prod_123")
-      active_prices = PaperTiger.Store.Prices.find_active()
+      prices = PaperTiger.Store.Prices.find_by(:product, "prod_123")
+      active_prices = PaperTiger.Store.Prices.find_by(:active, true)
   """
 
   use PaperTiger.Store,
@@ -62,27 +62,5 @@ defmodule PaperTiger.Store.Prices do
       object: "price",
       type: "recurring"
     }
-  end
-
-  @doc """
-  Finds prices by product ID.
-
-  **Direct ETS access** - does not go through GenServer.
-  """
-  @spec find_by_product(String.t()) :: [map()]
-  def find_by_product(product_id) when is_binary(product_id) do
-    :ets.match_object(@table, {:_, %{product: product_id}})
-    |> Enum.map(fn {_id, price} -> price end)
-  end
-
-  @doc """
-  Finds all active prices.
-
-  **Direct ETS access** - does not go through GenServer.
-  """
-  @spec find_active() :: [map()]
-  def find_active do
-    :ets.match_object(@table, {:_, %{active: true}})
-    |> Enum.map(fn {_id, price} -> price end)
   end
 end

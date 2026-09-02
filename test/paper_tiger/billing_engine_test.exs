@@ -160,7 +160,7 @@ defmodule PaperTiger.BillingEngineTest do
       assert invoice.amount_paid == 2150
       assert invoice.amount_remaining == 0
 
-      [line] = InvoiceItems.find_by_invoice(invoice.id)
+      [line] = InvoiceItems.find_by(:invoice, invoice.id)
       assert line.amount == 2000
       assert [%{amount: 150, taxable_amount: 2000}] = line.tax_amounts
       assert [%{amount: 150, tax_behavior: "exclusive", taxable_amount: 2000}] = line.taxes

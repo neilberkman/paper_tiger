@@ -146,7 +146,7 @@ defmodule PaperTiger.Resources.PaymentMethod do
     pagination_opts = parse_pagination_params(conn.params)
     customer_id = get_string_param(conn.params, :customer)
 
-    payment_methods = PaymentMethods.find_by_customer(customer_id)
+    payment_methods = PaymentMethods.find_by(:customer, customer_id)
     result = PaperTiger.List.paginate(payment_methods, Map.put(pagination_opts, :url, "/v1/payment_methods"))
 
     json_response(conn, 200, result)

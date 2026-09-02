@@ -23,22 +23,11 @@ defmodule PaperTiger.Store.Coupons do
       {:ok, coupon} = PaperTiger.Store.Coupons.insert(coupon)
 
       # Query helpers (direct ETS access)
-      active_coupons = PaperTiger.Store.Coupons.find_active()
+      active_coupons = PaperTiger.Store.Coupons.find_by(:valid, true)
   """
 
   use PaperTiger.Store,
     table: :paper_tiger_coupons,
     resource: "coupon",
     prefix: "coupon"
-
-  @doc """
-  Finds active coupons.
-
-  **Direct ETS access** - does not go through GenServer.
-  """
-  @spec find_active() :: [map()]
-  def find_active do
-    :ets.match_object(@table, {:_, %{valid: true}})
-    |> Enum.map(fn {_id, coupon} -> coupon end)
-  end
 end

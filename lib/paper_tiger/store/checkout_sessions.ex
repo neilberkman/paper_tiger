@@ -23,22 +23,11 @@ defmodule PaperTiger.Store.CheckoutSessions do
       {:ok, session} = PaperTiger.Store.CheckoutSessions.insert(session)
 
       # Query helpers (direct ETS access)
-      sessions = PaperTiger.Store.CheckoutSessions.find_by_customer("cus_123")
+      sessions = PaperTiger.Store.CheckoutSessions.find_by(:customer, "cus_123")
   """
 
   use PaperTiger.Store,
     table: :paper_tiger_checkout_sessions,
     resource: "checkout_session",
     prefix: "cs"
-
-  @doc """
-  Finds checkout sessions by customer ID.
-
-  **Direct ETS access** - does not go through GenServer.
-  """
-  @spec find_by_customer(String.t()) :: [map()]
-  def find_by_customer(customer_id) when is_binary(customer_id) do
-    :ets.match_object(@table, {:_, %{customer: customer_id}})
-    |> Enum.map(fn {_id, session} -> session end)
-  end
 end

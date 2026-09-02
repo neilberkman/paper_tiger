@@ -23,26 +23,13 @@ defmodule PaperTiger.Store.SubscriptionItems do
       {:ok, subscription_item} = PaperTiger.Store.SubscriptionItems.insert(subscription_item)
 
       # Query helpers (direct ETS access)
-      subscription_items = PaperTiger.Store.SubscriptionItems.find_by_subscription("sub_123")
+      subscription_items = PaperTiger.Store.SubscriptionItems.find_by(:subscription, "sub_123")
   """
 
   use PaperTiger.Store,
     table: :paper_tiger_subscription_items,
     resource: "subscription_item",
     prefix: "si"
-
-  @doc """
-  Finds subscription items by subscription ID.
-
-  **Direct ETS access** - does not go through GenServer.
-  """
-  @spec find_by_subscription(String.t()) :: [map()]
-  def find_by_subscription(subscription_id) when is_binary(subscription_id) do
-    namespace = current_namespace()
-
-    :ets.match_object(@table, {{namespace, :_}, %{subscription: subscription_id}})
-    |> Enum.map(fn {_id, subscription_item} -> subscription_item end)
-  end
 
   @doc """
   Deletes all subscription items for a given subscription.

@@ -23,8 +23,8 @@ defmodule PaperTiger.Store.Invoices do
       {:ok, invoice} = PaperTiger.Store.Invoices.insert(invoice)
 
       # Query helpers (direct ETS access)
-      invoices = PaperTiger.Store.Invoices.find_by_customer("cus_123")
-      invoices = PaperTiger.Store.Invoices.find_by_status("paid")
+      invoices = PaperTiger.Store.Invoices.find_by(:customer, "cus_123")
+      invoices = PaperTiger.Store.Invoices.find_by(:status, "paid")
   """
 
   use PaperTiger.Store,
@@ -43,55 +43,5 @@ defmodule PaperTiger.Store.Invoices do
 
     :ets.match_object(@table, {{namespace, :_}, :_})
     |> Enum.map(fn {_key, invoice} -> invoice end)
-  end
-
-  @doc """
-  Finds invoices by customer ID.
-
-  **Direct ETS access** - does not go through GenServer.
-  """
-  @spec find_by_customer(String.t()) :: [map()]
-  def find_by_customer(customer_id) when is_binary(customer_id) do
-    namespace = PaperTiger.Connect.storage_namespace()
-
-    :ets.match_object(@table, {{namespace, :_}, %{customer: customer_id}})
-    |> Enum.map(fn {_id, invoice} -> invoice end)
-  end
-
-  @doc """
-  Finds invoices by subscription ID.
-
-  **Direct ETS access** - does not go through GenServer.
-  """
-  @spec find_by_subscription(String.t()) :: [map()]
-  def find_by_subscription(subscription_id) when is_binary(subscription_id) do
-    namespace = PaperTiger.Connect.storage_namespace()
-
-    :ets.match_object(@table, {{namespace, :_}, %{subscription: subscription_id}})
-    |> Enum.map(fn {_id, invoice} -> invoice end)
-  end
-
-  @doc """
-  Finds invoices by status.
-
-  **Direct ETS access** - does not go through GenServer.
-
-  ## Examples
-
-      # Find all paid invoices
-      paid_invoices = PaperTiger.Store.Invoices.find_by_status("paid")
-
-      # Find all open invoices
-      open_invoices = PaperTiger.Store.Invoices.find_by_status("open")
-
-      # Find all void invoices
-      void_invoices = PaperTiger.Store.Invoices.find_by_status("void")
-  """
-  @spec find_by_status(String.t()) :: [map()]
-  def find_by_status(status) when is_binary(status) do
-    namespace = PaperTiger.Connect.storage_namespace()
-
-    :ets.match_object(@table, {{namespace, :_}, %{status: status}})
-    |> Enum.map(fn {_id, invoice} -> invoice end)
   end
 end

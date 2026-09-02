@@ -23,24 +23,11 @@ defmodule PaperTiger.Store.Customers do
       {:ok, customer} = PaperTiger.Store.Customers.insert(customer)
 
       # Custom query helpers
-      customers = PaperTiger.Store.Customers.find_by_email("test@example.com")
+      customers = PaperTiger.Store.Customers.find_by(:email, "test@example.com")
   """
 
   use PaperTiger.Store,
     table: :paper_tiger_customers,
     resource: "customer",
     prefix: "cus"
-
-  @doc """
-  Finds customers by email address.
-
-  **Direct ETS access** - does not go through GenServer.
-  """
-  @spec find_by_email(String.t()) :: [map()]
-  def find_by_email(email) when is_binary(email) do
-    namespace = current_namespace()
-
-    :ets.match_object(@table, {{namespace, :_}, %{email: email}})
-    |> Enum.map(fn {_key, customer} -> customer end)
-  end
 end

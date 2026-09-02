@@ -23,28 +23,13 @@ defmodule PaperTiger.Store.SubscriptionSchedules do
       {:ok, schedule} = PaperTiger.Store.SubscriptionSchedules.insert(schedule)
 
       # Query helpers (direct ETS access)
-      schedules = PaperTiger.Store.SubscriptionSchedules.find_by_customer("cus_123")
+      schedules = PaperTiger.Store.SubscriptionSchedules.find_by(:customer, "cus_123")
   """
 
   use PaperTiger.Store,
     table: :paper_tiger_subscription_schedules,
     resource: "subscription_schedule",
     prefix: "sub_sched"
-
-  @doc """
-  Finds subscription schedules by customer ID.
-
-  **Direct ETS access** - does not go through GenServer.
-
-  Returns all subscription schedules for the given customer, regardless of status.
-  """
-  @spec find_by_customer(String.t()) :: [map()]
-  def find_by_customer(customer_id) when is_binary(customer_id) do
-    namespace = current_namespace()
-
-    :ets.match_object(@table, {{namespace, :_}, %{customer: customer_id}})
-    |> Enum.map(fn {_id, schedule} -> schedule end)
-  end
 
   @doc """
   Finds all active (not_started or active) subscription schedules.
@@ -55,19 +40,6 @@ defmodule PaperTiger.Store.SubscriptionSchedules do
   def find_active do
     all()
     |> Enum.filter(fn schedule -> schedule.status in ["not_started", "active"] end)
-  end
-
-  @doc """
-  Finds subscription schedules that are scheduled (not yet started).
-
-  **Direct ETS access** - does not go through GenServer.
-  """
-  @spec find_scheduled() :: [map()]
-  def find_scheduled do
-    namespace = current_namespace()
-
-    :ets.match_object(@table, {{namespace, :_}, %{status: "not_started"}})
-    |> Enum.map(fn {_id, schedule} -> schedule end)
   end
 
   defp all do

@@ -23,22 +23,11 @@ defmodule PaperTiger.Store.SetupIntents do
       {:ok, setup_intent} = PaperTiger.Store.SetupIntents.insert(setup_intent)
 
       # Query helpers (direct ETS access)
-      setup_intents = PaperTiger.Store.SetupIntents.find_by_customer("cus_123")
+      setup_intents = PaperTiger.Store.SetupIntents.find_by(:customer, "cus_123")
   """
 
   use PaperTiger.Store,
     table: :paper_tiger_setup_intents,
     resource: "setup_intent",
     prefix: "seti"
-
-  @doc """
-  Finds setup intents by customer ID.
-
-  **Direct ETS access** - does not go through GenServer.
-  """
-  @spec find_by_customer(String.t()) :: [map()]
-  def find_by_customer(customer_id) when is_binary(customer_id) do
-    :ets.match_object(@table, {:_, %{customer: customer_id}})
-    |> Enum.map(fn {_id, setup_intent} -> setup_intent end)
-  end
 end
