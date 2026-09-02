@@ -967,8 +967,9 @@ defmodule PaperTiger.Resources.Subscription do
       # Create invoice with payment_intent reference
       invoice_id = generate_id("in")
       line_items = build_initial_invoice_line_items(subscription, invoice_id)
+      currency = Proration.invoice_currency(line_items)
       {line_items, totals} = AutomaticTax.apply_to_line_items(line_items, params, :invoice)
-      discount_amount = Discounts.amount(subscription.discount, subtotal, "usd")
+      discount_amount = Discounts.amount(subscription.discount, subtotal, currency)
       total_before_discount = if(AutomaticTax.enabled?(params), do: totals.total, else: subtotal)
       total = max(total_before_discount - discount_amount, 0)
       amount_paid = if(amt_paid == :paid_total, do: total, else: amt_paid)
@@ -987,7 +988,7 @@ defmodule PaperTiger.Resources.Subscription do
         client_secret: client_secret,
         confirmation_method: "automatic",
         created: now,
-        currency: "usd",
+        currency: currency,
         customer: subscription.customer,
         id: pi_id,
         invoice: invoice_id,
@@ -1009,7 +1010,7 @@ defmodule PaperTiger.Resources.Subscription do
         amount_remaining: amount_remaining,
         automatic_tax: automatic_tax,
         created: now,
-        currency: "usd",
+        currency: currency,
         customer: subscription.customer,
         id: invoice_id,
         lines: %{data: [], has_more: false, object: "list", url: "/v1/invoices/#{invoice_id}/lines"},

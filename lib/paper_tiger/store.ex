@@ -277,6 +277,18 @@ defmodule PaperTiger.Store do
   defp quote_namespace_functions(table, plural) do
     quote do
       @doc """
+      Lists every storage namespace that currently holds #{unquote(plural)}.
+
+      **Direct ETS access** - does not go through GenServer.
+      """
+      @spec namespaces() :: [PaperTiger.Connect.storage_namespace()]
+      def namespaces do
+        unquote(table)
+        |> :ets.select([{{{:"$1", :_}, :_}, [], [:"$1"]}])
+        |> Enum.uniq()
+      end
+
+      @doc """
       Clears all #{unquote(plural)} for a specific namespace.
 
       Used by `PaperTiger.Test` to clean up after each test.

@@ -204,6 +204,24 @@ defmodule PaperTiger.Test do
   end
 
   @doc """
+  Runs `fun` with `namespace` as the current sandbox namespace, restoring the
+  previous value afterwards. Used by background workers that act on behalf
+  of a sandbox from their own process.
+  """
+  @spec with_namespace(pid() | :global, (-> result)) :: result when result: term()
+  def with_namespace(namespace, fun) when is_function(fun, 0) do
+    unset = make_ref()
+    previous = Process.get(@namespace_key, unset)
+    Process.put(@namespace_key, namespace)
+
+    try do
+      fun.()
+    after
+      if previous == unset, do: Process.delete(@namespace_key), else: Process.put(@namespace_key, previous)
+    end
+  end
+
+  @doc """
   Cleans up all data for the given namespace.
 
   Called automatically on test exit when using `checkout_paper_tiger/1`.
