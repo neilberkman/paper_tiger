@@ -47,7 +47,6 @@ defmodule PaperTiger.Resources.Subscription do
   alias PaperTiger.Store.InvoiceItems
   alias PaperTiger.Store.Invoices
   alias PaperTiger.Store.PaymentIntents
-  alias PaperTiger.Store.Plans
   alias PaperTiger.Store.Prices
   alias PaperTiger.Store.SubscriptionItems
   alias PaperTiger.Store.Subscriptions
@@ -435,51 +434,16 @@ defmodule PaperTiger.Resources.Subscription do
 
   defp create_subscription_items(_subscription_id, _items), do: :ok
 
-  # Fetches full price object from store
-  # Note: Prices are validated upfront in validate_prices_exist/1, so this should always succeed
-  # Stripe API accepts both price IDs and plan IDs, so we check both stores
+  # Stripe accepts both price IDs and plan IDs here; prices are validated
+  # upfront in validate_prices_exist/1, so this normally succeeds.
   defp fetch_price_object(price_id) when is_binary(price_id) do
-    case Prices.get(price_id) do
-      {:ok, price} ->
-        price
-
-      {:error, :not_found} ->
-        # Try as plan ID (convert plan to price format for compatibility)
-        case Plans.get(price_id) do
-          {:ok, plan} -> convert_plan_to_price_format(plan)
-          {:error, :not_found} -> nil
-        end
+    case Prices.get_or_plan(price_id) do
+      {:ok, price} -> price
+      {:error, :not_found} -> nil
     end
   end
 
   defp fetch_price_object(_), do: nil
-
-  # Convert plan object to price format for compatibility
-  defp convert_plan_to_price_format(plan) do
-    recurring_map = %{interval: plan.interval}
-
-    recurring_map =
-      if plan.interval_count do
-        Map.put(recurring_map, :interval_count, plan.interval_count)
-      else
-        recurring_map
-      end
-
-    %{
-      active: plan.active,
-      created: plan.created,
-      currency: plan.currency,
-      id: plan.id,
-      livemode: plan.livemode,
-      metadata: plan.metadata || %{},
-      nickname: plan.nickname,
-      object: "price",
-      product: plan.product,
-      recurring: recurring_map,
-      type: "recurring",
-      unit_amount: plan.amount
-    }
-  end
 
   # Validates that the customer exists in the store
   defp validate_customer_exists(customer_id) do
@@ -507,18 +471,9 @@ defmodule PaperTiger.Resources.Subscription do
 
   defp validate_prices_exist(_), do: :ok
 
-  # Helper to check if a price or plan exists (Stripe API accepts both IDs)
+  # Stripe accepts both price IDs and plan IDs
   defp validate_price_or_plan_exists(id) do
-    case Prices.get(id) do
-      {:ok, _price} ->
-        :ok
-
-      {:error, :not_found} ->
-        case Plans.get(id) do
-          {:ok, _plan} -> :ok
-          {:error, :not_found} -> {:error, :not_found}
-        end
-    end
+    with {:ok, _price} <- Prices.get_or_plan(id), do: :ok
   end
 
   defp diff_attributes(old, new) do

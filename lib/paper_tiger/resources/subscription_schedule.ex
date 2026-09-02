@@ -12,7 +12,6 @@ defmodule PaperTiger.Resources.SubscriptionSchedule do
 
   alias PaperTiger.Error
   alias PaperTiger.Store.Customers
-  alias PaperTiger.Store.Plans
   alias PaperTiger.Store.Prices
   alias PaperTiger.Store.SubscriptionItems
   alias PaperTiger.Store.Subscriptions
@@ -1039,15 +1038,9 @@ defmodule PaperTiger.Resources.SubscriptionSchedule do
   defp require_price(_price_id, _param_name), do: :ok
 
   defp fetch_price_or_plan(id, param_name) do
-    case Prices.get(id) do
-      {:ok, price} ->
-        {:ok, price}
-
-      {:error, :not_found} ->
-        case Plans.get(id) do
-          {:ok, plan} -> {:ok, price_from_plan(plan)}
-          {:error, :not_found} -> {:error, Error.not_found("price", id) |> Map.put(:param, param_name)}
-        end
+    case Prices.get_or_plan(id) do
+      {:ok, price} -> {:ok, price}
+      {:error, :not_found} -> {:error, Error.not_found("price", id) |> Map.put(:param, param_name)}
     end
   end
 
@@ -1058,29 +1051,6 @@ defmodule PaperTiger.Resources.SubscriptionSchedule do
       {:ok, price} -> price
       {:error, _error} -> %{id: id, metadata: %{}, object: "price", recurring: %{}, unit_amount: 0}
     end
-  end
-
-  defp price_from_plan(plan) do
-    recurring =
-      %{
-        interval: plan.interval,
-        interval_count: plan[:interval_count] || 1
-      }
-
-    %{
-      active: plan.active,
-      created: plan.created,
-      currency: plan.currency,
-      id: plan.id,
-      livemode: plan.livemode,
-      metadata: plan.metadata || %{},
-      nickname: plan.nickname,
-      object: "price",
-      product: plan.product,
-      recurring: recurring,
-      type: "recurring",
-      unit_amount: plan.amount
-    }
   end
 
   defp plan_from_price(price) do
