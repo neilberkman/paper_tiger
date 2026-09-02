@@ -64,10 +64,7 @@ defmodule PaperTiger.Resources.Plan do
       |> then(&json_response(conn, 200, &1))
     else
       {:error, :invalid_params, field} ->
-        error_response(
-          conn,
-          PaperTiger.Error.invalid_request("Missing required parameter", field)
-        )
+        missing_param_response(conn, field)
     end
   end
 
@@ -90,26 +87,16 @@ defmodule PaperTiger.Resources.Plan do
   """
   @spec update(Plug.Conn.t(), String.t()) :: Plug.Conn.t()
   def update(conn, id) do
-    with {:ok, existing} <- Plans.get(id),
-         updated =
-           merge_updates(existing, conn.params, [
-             :id,
-             :object,
-             :created,
-             :currency,
-             :amount,
-             :interval,
-             :interval_count,
-             :product
-           ]),
-         {:ok, updated} <- Plans.update(updated) do
-      updated
-      |> maybe_expand(conn.params)
-      |> then(&json_response(conn, 200, &1))
-    else
-      {:error, :not_found} ->
-        error_response(conn, PaperTiger.Error.not_found("plan", id))
-    end
+    update_response(conn, Plans, "plan", id, [
+      :id,
+      :object,
+      :created,
+      :currency,
+      :amount,
+      :interval,
+      :interval_count,
+      :product
+    ])
   end
 
   @doc """
@@ -131,13 +118,7 @@ defmodule PaperTiger.Resources.Plan do
   - active - Filter by active status
   """
   @spec list(Plug.Conn.t()) :: Plug.Conn.t()
-  def list(conn) do
-    pagination_opts = parse_pagination_params(conn.params)
-
-    result = Plans.list(pagination_opts)
-
-    json_response(conn, 200, result)
-  end
+  def list(conn), do: list_response(conn, Plans)
 
   ## Private Functions
 

@@ -77,10 +77,7 @@ defmodule PaperTiger.Resources.Price do
       |> then(&json_response(conn, 200, &1))
     else
       {:error, :invalid_params, field} ->
-        error_response(
-          conn,
-          PaperTiger.Error.invalid_request("Missing required parameter", field)
-        )
+        missing_param_response(conn, field)
     end
   end
 
@@ -103,25 +100,7 @@ defmodule PaperTiger.Resources.Price do
   """
   @spec update(Plug.Conn.t(), String.t()) :: Plug.Conn.t()
   def update(conn, id) do
-    with {:ok, existing} <- Prices.get(id),
-         updated =
-           merge_updates(existing, conn.params, [
-             :id,
-             :object,
-             :created,
-             :currency,
-             :product,
-             :unit_amount,
-             :recurring
-           ]),
-         {:ok, updated} <- Prices.update(updated) do
-      updated
-      |> maybe_expand(conn.params)
-      |> then(&json_response(conn, 200, &1))
-    else
-      {:error, :not_found} ->
-        error_response(conn, PaperTiger.Error.not_found("price", id))
-    end
+    update_response(conn, Prices, "price", id, [:id, :object, :created, :currency, :product, :unit_amount, :recurring])
   end
 
   @doc """

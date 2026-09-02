@@ -66,10 +66,7 @@ defmodule PaperTiger.Resources.Coupon do
       |> then(&json_response(conn, 200, &1))
     else
       {:error, :invalid_params, field} ->
-        error_response(
-          conn,
-          PaperTiger.Error.invalid_request("Missing required parameter", field)
-        )
+        missing_param_response(conn, field)
 
       {:error, :invalid_discount} ->
         error_response(
@@ -108,28 +105,18 @@ defmodule PaperTiger.Resources.Coupon do
   """
   @spec update(Plug.Conn.t(), String.t()) :: Plug.Conn.t()
   def update(conn, id) do
-    with {:ok, existing} <- Coupons.get(id),
-         updated =
-           merge_updates(existing, conn.params, [
-             :id,
-             :object,
-             :created,
-             :percent_off,
-             :amount_off,
-             :currency,
-             :duration,
-             :duration_in_months,
-             :max_redemptions,
-             :redeem_by
-           ]),
-         {:ok, updated} <- Coupons.update(updated) do
-      updated
-      |> maybe_expand(conn.params)
-      |> then(&json_response(conn, 200, &1))
-    else
-      {:error, :not_found} ->
-        error_response(conn, PaperTiger.Error.not_found("coupon", id))
-    end
+    update_response(conn, Coupons, "coupon", id, [
+      :id,
+      :object,
+      :created,
+      :percent_off,
+      :amount_off,
+      :currency,
+      :duration,
+      :duration_in_months,
+      :max_redemptions,
+      :redeem_by
+    ])
   end
 
   @doc """
@@ -150,13 +137,7 @@ defmodule PaperTiger.Resources.Coupon do
   - ending_before - Reverse cursor
   """
   @spec list(Plug.Conn.t()) :: Plug.Conn.t()
-  def list(conn) do
-    pagination_opts = parse_pagination_params(conn.params)
-
-    result = Coupons.list(pagination_opts)
-
-    json_response(conn, 200, result)
-  end
+  def list(conn), do: list_response(conn, Coupons)
 
   ## Private Functions
 

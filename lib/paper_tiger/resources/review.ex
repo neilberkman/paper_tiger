@@ -47,27 +47,8 @@ defmodule PaperTiger.Resources.Review do
   - metadata
   """
   @spec update(Plug.Conn.t(), String.t()) :: Plug.Conn.t()
-  def update(conn, id) do
-    with {:ok, existing} <- Reviews.get(id),
-         updated =
-           merge_updates(existing, conn.params, [
-             :id,
-             :object,
-             :created,
-             :charge,
-             :payment_intent,
-             :reason,
-             :open
-           ]),
-         {:ok, updated} <- Reviews.update(updated) do
-      updated
-      |> maybe_expand(conn.params)
-      |> then(&json_response(conn, 200, &1))
-    else
-      {:error, :not_found} ->
-        error_response(conn, PaperTiger.Error.not_found("review", id))
-    end
-  end
+  def update(conn, id),
+    do: update_response(conn, Reviews, "review", id, [:id, :object, :created, :charge, :payment_intent, :reason, :open])
 
   @doc """
   Lists all reviews with pagination.
@@ -81,13 +62,7 @@ defmodule PaperTiger.Resources.Review do
   - payment_intent - Filter by payment intent ID
   """
   @spec list(Plug.Conn.t()) :: Plug.Conn.t()
-  def list(conn) do
-    pagination_opts = parse_pagination_params(conn.params)
-
-    result = Reviews.list(pagination_opts)
-
-    json_response(conn, 200, result)
-  end
+  def list(conn), do: list_response(conn, Reviews)
 
   ## Private Functions
 end

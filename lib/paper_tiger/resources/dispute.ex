@@ -52,26 +52,16 @@ defmodule PaperTiger.Resources.Dispute do
   """
   @spec update(Plug.Conn.t(), String.t()) :: Plug.Conn.t()
   def update(conn, id) do
-    with {:ok, existing} <- Disputes.get(id),
-         updated =
-           merge_updates(existing, conn.params, [
-             :id,
-             :object,
-             :created,
-             :amount,
-             :charge,
-             :currency,
-             :status,
-             :reason
-           ]),
-         {:ok, updated} <- Disputes.update(updated) do
-      updated
-      |> maybe_expand(conn.params)
-      |> then(&json_response(conn, 200, &1))
-    else
-      {:error, :not_found} ->
-        error_response(conn, PaperTiger.Error.not_found("dispute", id))
-    end
+    update_response(conn, Disputes, "dispute", id, [
+      :id,
+      :object,
+      :created,
+      :amount,
+      :charge,
+      :currency,
+      :status,
+      :reason
+    ])
   end
 
   @doc """
@@ -86,13 +76,7 @@ defmodule PaperTiger.Resources.Dispute do
   - status - Filter by dispute status
   """
   @spec list(Plug.Conn.t()) :: Plug.Conn.t()
-  def list(conn) do
-    pagination_opts = parse_pagination_params(conn.params)
-
-    result = Disputes.list(pagination_opts)
-
-    json_response(conn, 200, result)
-  end
+  def list(conn), do: list_response(conn, Disputes)
 
   ## Private Functions
 end

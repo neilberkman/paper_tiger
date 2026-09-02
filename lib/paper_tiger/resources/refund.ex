@@ -64,10 +64,7 @@ defmodule PaperTiger.Resources.Refund do
       |> then(&json_response(conn, 200, &1))
     else
       {:error, :invalid_params, field} ->
-        error_response(
-          conn,
-          PaperTiger.Error.invalid_request("Missing required parameter", field)
-        )
+        missing_param_response(conn, field)
 
       {:error, :charge_not_found, charge_id} ->
         error_response(conn, PaperTiger.Error.not_found("charge", charge_id))
@@ -104,26 +101,7 @@ defmodule PaperTiger.Resources.Refund do
   """
   @spec update(Plug.Conn.t(), String.t()) :: Plug.Conn.t()
   def update(conn, id) do
-    with {:ok, existing} <- Refunds.get(id),
-         updated =
-           merge_updates(existing, conn.params, [
-             :id,
-             :object,
-             :created,
-             :amount,
-             :charge,
-             :currency,
-             :status,
-             :reason
-           ]),
-         {:ok, updated} <- Refunds.update(updated) do
-      updated
-      |> maybe_expand(conn.params)
-      |> then(&json_response(conn, 200, &1))
-    else
-      {:error, :not_found} ->
-        error_response(conn, PaperTiger.Error.not_found("refund", id))
-    end
+    update_response(conn, Refunds, "refund", id, [:id, :object, :created, :amount, :charge, :currency, :status, :reason])
   end
 
   @doc """

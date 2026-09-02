@@ -59,10 +59,7 @@ defmodule PaperTiger.Resources.Product do
       |> then(&json_response(conn, 200, &1))
     else
       {:error, :invalid_params, field} ->
-        error_response(
-          conn,
-          PaperTiger.Error.invalid_request("Missing required parameter", field)
-        )
+        missing_param_response(conn, field)
     end
   end
 
@@ -85,18 +82,7 @@ defmodule PaperTiger.Resources.Product do
   - statement_descriptor
   """
   @spec update(Plug.Conn.t(), String.t()) :: Plug.Conn.t()
-  def update(conn, id) do
-    with {:ok, existing} <- Products.get(id),
-         updated = merge_updates(existing, conn.params),
-         {:ok, updated} <- Products.update(updated) do
-      updated
-      |> maybe_expand(conn.params)
-      |> then(&json_response(conn, 200, &1))
-    else
-      {:error, :not_found} ->
-        error_response(conn, PaperTiger.Error.not_found("product", id))
-    end
-  end
+  def update(conn, id), do: update_response(conn, Products, "product", id)
 
   @doc """
   Deletes a product.

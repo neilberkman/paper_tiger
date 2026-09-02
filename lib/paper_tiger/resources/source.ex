@@ -59,10 +59,7 @@ defmodule PaperTiger.Resources.Source do
       |> then(&json_response(conn, 200, &1))
     else
       {:error, :invalid_params, field} ->
-        error_response(
-          conn,
-          PaperTiger.Error.invalid_request("Missing required parameter", field)
-        )
+        missing_param_response(conn, field)
     end
   end
 
@@ -85,27 +82,17 @@ defmodule PaperTiger.Resources.Source do
   """
   @spec update(Plug.Conn.t(), String.t()) :: Plug.Conn.t()
   def update(conn, id) do
-    with {:ok, existing} <- Sources.get(id),
-         updated =
-           merge_updates(existing, conn.params, [
-             :id,
-             :object,
-             :created,
-             :type,
-             :customer,
-             :status,
-             :amount,
-             :currency,
-             :livemode
-           ]),
-         {:ok, updated} <- Sources.update(updated) do
-      updated
-      |> maybe_expand(conn.params)
-      |> then(&json_response(conn, 200, &1))
-    else
-      {:error, :not_found} ->
-        error_response(conn, PaperTiger.Error.not_found("source", id))
-    end
+    update_response(conn, Sources, "source", id, [
+      :id,
+      :object,
+      :created,
+      :type,
+      :customer,
+      :status,
+      :amount,
+      :currency,
+      :livemode
+    ])
   end
 
   @doc """

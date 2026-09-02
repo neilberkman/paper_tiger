@@ -48,13 +48,7 @@ defmodule PaperTiger.Resources.BalanceTransaction do
   - source - Filter by source ID
   """
   @spec list(Plug.Conn.t()) :: Plug.Conn.t()
-  def list(conn) do
-    pagination_opts = parse_pagination_params(conn.params)
-
-    result = BalanceTransactions.list(pagination_opts)
-
-    json_response(conn, 200, result)
-  end
+  def list(conn), do: list_response(conn, BalanceTransactions)
 
   ## Private Functions
 end

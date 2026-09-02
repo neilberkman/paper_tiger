@@ -72,10 +72,7 @@ defmodule PaperTiger.Resources.PaymentMethod do
       |> then(&json_response(conn, 200, &1))
     else
       {:error, :invalid_params, field} ->
-        error_response(
-          conn,
-          PaperTiger.Error.invalid_request("Missing required parameter", field)
-        )
+        missing_param_response(conn, field)
     end
   end
 
@@ -96,26 +93,8 @@ defmodule PaperTiger.Resources.PaymentMethod do
   - billing_details
   """
   @spec update(Plug.Conn.t(), String.t()) :: Plug.Conn.t()
-  def update(conn, id) do
-    with {:ok, existing} <- PaymentMethods.get(id),
-         updated =
-           merge_updates(existing, conn.params, [
-             :id,
-             :object,
-             :created,
-             :type,
-             :customer,
-             :card
-           ]),
-         {:ok, updated} <- PaymentMethods.update(updated) do
-      updated
-      |> maybe_expand(conn.params)
-      |> then(&json_response(conn, 200, &1))
-    else
-      {:error, :not_found} ->
-        error_response(conn, PaperTiger.Error.not_found("payment_method", id))
-    end
-  end
+  def update(conn, id),
+    do: update_response(conn, PaymentMethods, "payment_method", id, [:id, :object, :created, :type, :customer, :card])
 
   @doc """
   Deletes a payment method.

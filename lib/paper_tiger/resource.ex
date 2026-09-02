@@ -152,6 +152,39 @@ defmodule PaperTiger.Resource do
   end
 
   @doc """
+  Sends the error for a required parameter that `validate_params/2` found missing.
+  """
+  @spec missing_param_response(Plug.Conn.t(), atom() | String.t()) :: Plug.Conn.t()
+  def missing_param_response(conn, field) do
+    error_response(conn, PaperTiger.Error.invalid_request("Missing required parameter", field))
+  end
+
+  @doc """
+  Handles a standard list request with no filters beyond pagination.
+  """
+  @spec list_response(Plug.Conn.t(), module()) :: Plug.Conn.t()
+  def list_response(conn, store) do
+    json_response(conn, 200, store.list(parse_pagination_params(conn.params)))
+  end
+
+  @doc """
+  Handles a standard update request.
+
+  Merges the request params into the stored resource with `merge_updates/3`,
+  skipping `immutable_fields`, writes it back to `store`, and sends the
+  hydrated result. Unknown IDs get the `resource_missing` 404 for `object`.
+  """
+  @spec update_response(Plug.Conn.t(), module(), String.t(), String.t(), [atom()]) :: Plug.Conn.t()
+  def update_response(conn, store, object, id, immutable_fields \\ [:id, :object, :created]) do
+    with {:ok, existing} <- store.get(id),
+         {:ok, updated} <- store.update(merge_updates(existing, conn.params, immutable_fields)) do
+      json_response(conn, 200, maybe_expand(updated, conn.params))
+    else
+      {:error, :not_found} -> error_response(conn, PaperTiger.Error.not_found(object, id))
+    end
+  end
+
+  @doc """
   Handles a standard delete request.
 
   Deletes `id` from `store` and sends Stripe's deletion confirmation for

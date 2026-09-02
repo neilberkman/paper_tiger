@@ -54,10 +54,7 @@ defmodule PaperTiger.Resources.SubscriptionItem do
       |> then(&json_response(conn, 200, &1))
     else
       {:error, :invalid_params, field} ->
-        error_response(
-          conn,
-          PaperTiger.Error.invalid_request("Missing required parameter", field)
-        )
+        missing_param_response(conn, field)
     end
   end
 
@@ -77,24 +74,8 @@ defmodule PaperTiger.Resources.SubscriptionItem do
   - metadata
   """
   @spec update(Plug.Conn.t(), String.t()) :: Plug.Conn.t()
-  def update(conn, id) do
-    with {:ok, existing} <- SubscriptionItems.get(id),
-         updated =
-           merge_updates(existing, conn.params, [
-             :id,
-             :object,
-             :created,
-             :subscription
-           ]),
-         {:ok, updated} <- SubscriptionItems.update(updated) do
-      updated
-      |> maybe_expand(conn.params)
-      |> then(&json_response(conn, 200, &1))
-    else
-      {:error, :not_found} ->
-        error_response(conn, PaperTiger.Error.not_found("subscription_item", id))
-    end
-  end
+  def update(conn, id),
+    do: update_response(conn, SubscriptionItems, "subscription_item", id, [:id, :object, :created, :subscription])
 
   @doc """
   Deletes a subscription item.

@@ -62,10 +62,7 @@ defmodule PaperTiger.Resources.Payout do
       |> then(&json_response(conn, 200, &1))
     else
       {:error, :invalid_params, field} ->
-        error_response(
-          conn,
-          PaperTiger.Error.invalid_request("Missing required parameter", field)
-        )
+        missing_param_response(conn, field)
     end
   end
 
@@ -86,28 +83,18 @@ defmodule PaperTiger.Resources.Payout do
   """
   @spec update(Plug.Conn.t(), String.t()) :: Plug.Conn.t()
   def update(conn, id) do
-    with {:ok, existing} <- Payouts.get(id),
-         updated =
-           merge_updates(existing, conn.params, [
-             :id,
-             :object,
-             :created,
-             :amount,
-             :currency,
-             :status,
-             :arrival_date,
-             :method,
-             :type,
-             :destination
-           ]),
-         {:ok, updated} <- Payouts.update(updated) do
-      updated
-      |> maybe_expand(conn.params)
-      |> then(&json_response(conn, 200, &1))
-    else
-      {:error, :not_found} ->
-        error_response(conn, PaperTiger.Error.not_found("payout", id))
-    end
+    update_response(conn, Payouts, "payout", id, [
+      :id,
+      :object,
+      :created,
+      :amount,
+      :currency,
+      :status,
+      :arrival_date,
+      :method,
+      :type,
+      :destination
+    ])
   end
 
   @doc """
@@ -122,13 +109,7 @@ defmodule PaperTiger.Resources.Payout do
   - created - Filter by creation date
   """
   @spec list(Plug.Conn.t()) :: Plug.Conn.t()
-  def list(conn) do
-    pagination_opts = parse_pagination_params(conn.params)
-
-    result = Payouts.list(pagination_opts)
-
-    json_response(conn, 200, result)
-  end
+  def list(conn), do: list_response(conn, Payouts)
 
   ## Private Functions
 

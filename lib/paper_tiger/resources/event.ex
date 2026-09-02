@@ -49,13 +49,7 @@ defmodule PaperTiger.Resources.Event do
   - type - Filter by event type
   """
   @spec list(Plug.Conn.t()) :: Plug.Conn.t()
-  def list(conn) do
-    pagination_opts = parse_pagination_params(conn.params)
-
-    result = Events.list(pagination_opts)
-
-    json_response(conn, 200, result)
-  end
+  def list(conn), do: list_response(conn, Events)
 
   ## Private Functions
 end

@@ -55,10 +55,7 @@ defmodule PaperTiger.Resources.Topup do
       |> then(&json_response(conn, 200, &1))
     else
       {:error, :invalid_params, field} ->
-        error_response(
-          conn,
-          PaperTiger.Error.invalid_request("Missing required parameter", field)
-        )
+        missing_param_response(conn, field)
     end
   end
 
@@ -79,26 +76,8 @@ defmodule PaperTiger.Resources.Topup do
   - metadata
   """
   @spec update(Plug.Conn.t(), String.t()) :: Plug.Conn.t()
-  def update(conn, id) do
-    with {:ok, existing} <- Topups.get(id),
-         updated =
-           merge_updates(existing, conn.params, [
-             :id,
-             :object,
-             :created,
-             :amount,
-             :currency,
-             :status
-           ]),
-         {:ok, updated} <- Topups.update(updated) do
-      updated
-      |> maybe_expand(conn.params)
-      |> then(&json_response(conn, 200, &1))
-    else
-      {:error, :not_found} ->
-        error_response(conn, PaperTiger.Error.not_found("topup", id))
-    end
-  end
+  def update(conn, id),
+    do: update_response(conn, Topups, "topup", id, [:id, :object, :created, :amount, :currency, :status])
 
   @doc """
   Lists all topups with pagination.
@@ -111,13 +90,7 @@ defmodule PaperTiger.Resources.Topup do
   - status - Filter by status
   """
   @spec list(Plug.Conn.t()) :: Plug.Conn.t()
-  def list(conn) do
-    pagination_opts = parse_pagination_params(conn.params)
-
-    result = Topups.list(pagination_opts)
-
-    json_response(conn, 200, result)
-  end
+  def list(conn), do: list_response(conn, Topups)
 
   ## Private Functions
 

@@ -26,7 +26,7 @@ defmodule PaperTiger.Resources.PaymentLink do
       |> then(&json_response(conn, 200, &1))
     else
       {:error, :invalid_params, field} ->
-        error_response(conn, PaperTiger.Error.invalid_request("Missing required parameter", field))
+        missing_param_response(conn, field)
 
       {:error, :invalid_line_items, message} ->
         error_response(conn, PaperTiger.Error.invalid_request(message, "line_items"))

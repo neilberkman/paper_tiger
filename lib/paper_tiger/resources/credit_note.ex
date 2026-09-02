@@ -30,7 +30,7 @@ defmodule PaperTiger.Resources.CreditNote do
       |> then(&json_response(conn, 200, &1))
     else
       {:error, :invalid_params, field} ->
-        error_response(conn, PaperTiger.Error.invalid_request("Missing required parameter", field))
+        missing_param_response(conn, field)
 
       {:error, :missing_amount_source} ->
         error_response(conn, PaperTiger.Error.invalid_request("Must provide amount, lines, or shipping_cost"))
@@ -60,7 +60,7 @@ defmodule PaperTiger.Resources.CreditNote do
       |> then(&json_response(conn, 200, &1))
     else
       {:error, :invalid_params, field} ->
-        error_response(conn, PaperTiger.Error.invalid_request("Missing required parameter", field))
+        missing_param_response(conn, field)
 
       {:error, :missing_amount_source} ->
         error_response(conn, PaperTiger.Error.invalid_request("Must provide amount, lines, or shipping_cost"))

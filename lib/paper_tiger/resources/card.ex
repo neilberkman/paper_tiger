@@ -64,10 +64,7 @@ defmodule PaperTiger.Resources.Card do
       |> then(&json_response(conn, 200, &1))
     else
       {:error, :invalid_params, field} ->
-        error_response(
-          conn,
-          PaperTiger.Error.invalid_request("Missing required parameter", field)
-        )
+        missing_param_response(conn, field)
     end
   end
 
@@ -93,18 +90,7 @@ defmodule PaperTiger.Resources.Card do
   - address_zip
   """
   @spec update(Plug.Conn.t(), String.t()) :: Plug.Conn.t()
-  def update(conn, id) do
-    with {:ok, existing} <- Cards.get(id),
-         updated = merge_updates(existing, conn.params),
-         {:ok, updated} <- Cards.update(updated) do
-      updated
-      |> maybe_expand(conn.params)
-      |> then(&json_response(conn, 200, &1))
-    else
-      {:error, :not_found} ->
-        error_response(conn, PaperTiger.Error.not_found("card", id))
-    end
-  end
+  def update(conn, id), do: update_response(conn, Cards, "card", id)
 
   @doc """
   Deletes a card (detaches from customer).
