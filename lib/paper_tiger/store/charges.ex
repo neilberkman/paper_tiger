@@ -23,7 +23,7 @@ defmodule PaperTiger.Store.Charges do
       {:ok, charge} = PaperTiger.Store.Charges.insert(charge)
 
       # Query helpers (direct ETS access)
-      charges = PaperTiger.Store.Charges.find_by_customer("cus_123")
+      charges = PaperTiger.Store.Charges.find_by(:customer, "cus_123")
   """
 
   use PaperTiger.Store,
@@ -31,25 +31,9 @@ defmodule PaperTiger.Store.Charges do
     resource: "charge",
     prefix: "ch"
 
-  @doc """
-  Finds charges by customer ID.
+  @deprecated "Use find_by/2"
+  def find_by_customer(value), do: find_by(:customer, value)
 
-  **Direct ETS access** - does not go through GenServer.
-  """
-  @spec find_by_customer(String.t()) :: [map()]
-  def find_by_customer(customer_id) when is_binary(customer_id) do
-    :ets.match_object(@table, {:_, %{customer: customer_id}})
-    |> Enum.map(fn {_id, charge} -> charge end)
-  end
-
-  @doc """
-  Finds charges by payment intent ID.
-
-  **Direct ETS access** - does not go through GenServer.
-  """
-  @spec find_by_payment_intent(String.t()) :: [map()]
-  def find_by_payment_intent(payment_intent_id) when is_binary(payment_intent_id) do
-    :ets.match_object(@table, {:_, %{payment_intent: payment_intent_id}})
-    |> Enum.map(fn {_id, charge} -> charge end)
-  end
+  @deprecated "Use find_by/2"
+  def find_by_payment_intent(value), do: find_by(:payment_intent, value)
 end

@@ -22,7 +22,7 @@ defmodule PaperTiger.Resources.BillingPortalConfiguration do
       |> then(&json_response(conn, 200, &1))
     else
       {:error, :invalid_params, field} ->
-        error_response(conn, PaperTiger.Error.invalid_request("Missing required parameter", field))
+        missing_param_response(conn, field)
     end
   end
 
@@ -128,12 +128,6 @@ defmodule PaperTiger.Resources.BillingPortalConfiguration do
         proration_behavior: "none"
       }
     }
-  end
-
-  defp maybe_expand(configuration, params) do
-    params
-    |> parse_expand_params()
-    |> then(&PaperTiger.Hydrator.hydrate(configuration, &1))
   end
 
   defp normalize_update_params(params) do

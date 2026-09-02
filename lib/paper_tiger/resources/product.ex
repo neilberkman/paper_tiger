@@ -59,10 +59,7 @@ defmodule PaperTiger.Resources.Product do
       |> then(&json_response(conn, 200, &1))
     else
       {:error, :invalid_params, field} ->
-        error_response(
-          conn,
-          PaperTiger.Error.invalid_request("Missing required parameter", field)
-        )
+        missing_param_response(conn, field)
     end
   end
 
@@ -70,17 +67,7 @@ defmodule PaperTiger.Resources.Product do
   Retrieves a product by ID.
   """
   @spec retrieve(Plug.Conn.t(), String.t()) :: Plug.Conn.t()
-  def retrieve(conn, id) do
-    case Products.get(id) do
-      {:ok, product} ->
-        product
-        |> maybe_expand(conn.params)
-        |> then(&json_response(conn, 200, &1))
-
-      {:error, :not_found} ->
-        error_response(conn, PaperTiger.Error.not_found("product", id))
-    end
-  end
+  def retrieve(conn, id), do: retrieve_response(conn, Products, "product", id)
 
   @doc """
   Updates a product.
@@ -95,18 +82,7 @@ defmodule PaperTiger.Resources.Product do
   - statement_descriptor
   """
   @spec update(Plug.Conn.t(), String.t()) :: Plug.Conn.t()
-  def update(conn, id) do
-    with {:ok, existing} <- Products.get(id),
-         updated = merge_updates(existing, conn.params),
-         {:ok, updated} <- Products.update(updated) do
-      updated
-      |> maybe_expand(conn.params)
-      |> then(&json_response(conn, 200, &1))
-    else
-      {:error, :not_found} ->
-        error_response(conn, PaperTiger.Error.not_found("product", id))
-    end
-  end
+  def update(conn, id), do: update_response(conn, Products, "product", id)
 
   @doc """
   Deletes a product.
@@ -114,21 +90,7 @@ defmodule PaperTiger.Resources.Product do
   Returns a deletion confirmation object.
   """
   @spec delete(Plug.Conn.t(), String.t()) :: Plug.Conn.t()
-  def delete(conn, id) do
-    case Products.get(id) do
-      {:ok, _product} ->
-        :ok = Products.delete(id)
-
-        json_response(conn, 200, %{
-          deleted: true,
-          id: id,
-          object: "product"
-        })
-
-      {:error, :not_found} ->
-        error_response(conn, PaperTiger.Error.not_found("product", id))
-    end
-  end
+  def delete(conn, id), do: delete_response(conn, Products, "product", id)
 
   @doc """
   Lists all products with pagination.
@@ -197,9 +159,4 @@ defmodule PaperTiger.Resources.Product do
 
   defp maybe_boolean(nil), do: nil
   defp maybe_boolean(value), do: to_boolean(value)
-
-  defp maybe_expand(product, params) do
-    expand_params = parse_expand_params(params)
-    PaperTiger.Hydrator.hydrate(product, expand_params)
-  end
 end

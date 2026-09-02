@@ -235,9 +235,4 @@ defmodule PaperTiger.Resources.Account do
   defp empty_nested_list(url) do
     %{data: [], has_more: false, object: "list", total_count: 0, url: url}
   end
-
-  defp maybe_expand(account, params) do
-    expand_params = parse_expand_params(params)
-    PaperTiger.Hydrator.hydrate(account, expand_params)
-  end
 end

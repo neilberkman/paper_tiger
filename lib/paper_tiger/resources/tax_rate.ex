@@ -58,10 +58,7 @@ defmodule PaperTiger.Resources.TaxRate do
       |> then(&json_response(conn, 200, &1))
     else
       {:error, :invalid_params, field} ->
-        error_response(
-          conn,
-          PaperTiger.Error.invalid_request("Missing required parameter", field)
-        )
+        missing_param_response(conn, field)
     end
   end
 
@@ -69,17 +66,7 @@ defmodule PaperTiger.Resources.TaxRate do
   Retrieves a tax rate by ID.
   """
   @spec retrieve(Plug.Conn.t(), String.t()) :: Plug.Conn.t()
-  def retrieve(conn, id) do
-    case TaxRates.get(id) do
-      {:ok, tax_rate} ->
-        tax_rate
-        |> maybe_expand(conn.params)
-        |> then(&json_response(conn, 200, &1))
-
-      {:error, :not_found} ->
-        error_response(conn, PaperTiger.Error.not_found("tax_rate", id))
-    end
-  end
+  def retrieve(conn, id), do: retrieve_response(conn, TaxRates, "tax_rate", id)
 
   @doc """
   Updates a tax rate.
@@ -93,25 +80,15 @@ defmodule PaperTiger.Resources.TaxRate do
   """
   @spec update(Plug.Conn.t(), String.t()) :: Plug.Conn.t()
   def update(conn, id) do
-    with {:ok, existing} <- TaxRates.get(id),
-         updated =
-           merge_updates(existing, conn.params, [
-             :id,
-             :object,
-             :created,
-             :display_name,
-             :percentage,
-             :inclusive,
-             :jurisdiction
-           ]),
-         {:ok, updated} <- TaxRates.update(updated) do
-      updated
-      |> maybe_expand(conn.params)
-      |> then(&json_response(conn, 200, &1))
-    else
-      {:error, :not_found} ->
-        error_response(conn, PaperTiger.Error.not_found("tax_rate", id))
-    end
+    update_response(conn, TaxRates, "tax_rate", id, [
+      :id,
+      :object,
+      :created,
+      :display_name,
+      :percentage,
+      :inclusive,
+      :jurisdiction
+    ])
   end
 
   @doc """
@@ -125,13 +102,7 @@ defmodule PaperTiger.Resources.TaxRate do
   - active - Filter by active status
   """
   @spec list(Plug.Conn.t()) :: Plug.Conn.t()
-  def list(conn) do
-    pagination_opts = parse_pagination_params(conn.params)
-
-    result = TaxRates.list(pagination_opts)
-
-    json_response(conn, 200, result)
-  end
+  def list(conn), do: list_response(conn, TaxRates)
 
   ## Private Functions
 
@@ -153,10 +124,5 @@ defmodule PaperTiger.Resources.TaxRate do
       state: Map.get(params, :state),
       tax_type: Map.get(params, :tax_type)
     }
-  end
-
-  defp maybe_expand(tax_rate, params) do
-    expand_params = parse_expand_params(params)
-    PaperTiger.Hydrator.hydrate(tax_rate, expand_params)
   end
 end

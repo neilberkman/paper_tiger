@@ -26,7 +26,7 @@ defmodule PaperTiger.Resources.AccountLink do
         json_response(conn, 200, link)
       else
         {:error, :invalid_params, field} ->
-          error_response(conn, PaperTiger.Error.invalid_request("Missing required parameter", field))
+          missing_param_response(conn, field)
 
         {:error, :invalid_type, type} ->
           error_response(conn, PaperTiger.Error.invalid_request("Invalid account link type: #{type}", "type"))

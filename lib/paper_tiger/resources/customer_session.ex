@@ -20,7 +20,7 @@ defmodule PaperTiger.Resources.CustomerSession do
       json_response(conn, 200, customer_session)
     else
       {:error, :invalid_params, field} ->
-        error_response(conn, PaperTiger.Error.invalid_request("Missing required parameter", field))
+        missing_param_response(conn, field)
 
       {:error, :customer_not_found, customer_id} ->
         error_response(conn, PaperTiger.Error.not_found("customer", customer_id))

@@ -19,7 +19,7 @@ defmodule PaperTiger.Resources.CustomerBalanceTransaction do
       json_response(conn, 200, transaction)
     else
       {:error, :invalid_params, field} ->
-        error_response(conn, PaperTiger.Error.invalid_request("Missing required parameter", field))
+        missing_param_response(conn, field)
 
       {:error, :not_found} ->
         error_response(conn, PaperTiger.Error.not_found("customer", customer_id))

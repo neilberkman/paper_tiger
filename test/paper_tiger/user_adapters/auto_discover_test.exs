@@ -3,243 +3,140 @@ defmodule PaperTiger.UserAdapters.AutoDiscoverTest do
 
   alias PaperTiger.UserAdapters.AutoDiscover
 
-  describe "get_user_info/2 with simple schema (email in users table)" do
-    defmodule SimpleRepo do
-      def query("SELECT EXISTS" <> _, ["users"]), do: {:ok, %{rows: [[true]]}}
-      def query("SELECT EXISTS" <> _, _), do: {:ok, %{rows: [[false]]}}
-
-      def query("SELECT * FROM users WHERE id = $1 LIMIT 1", [1]) do
-        {:ok,
-         %{
-           columns: ["id", "email", "first_name", "last_name"],
-           rows: [[1, "john@example.com", "John", "Doe"]]
-         }}
-      end
-
-      def query(_, _), do: {:ok, %{rows: []}}
+  # A repo stub driven by a schema map in the test process:
+  #
+  #   %{
+  #     tables: ["users"],                       # tables that exist
+  #     users: %{1 => %{"id" => 1, ...}},        # rows by id, keyed by table
+  #     emails: %{10 => "jane@example.com"}      # emails table addresses by id
+  #   }
+  defmodule FakeRepo do
+    def query("SELECT EXISTS" <> _, [table]) do
+      {:ok, %{rows: [[table in Map.get(schema(), :tables, [])]]}}
     end
 
-    test "discovers user with email directly in users table" do
-      assert {:ok, user_info} = AutoDiscover.get_user_info(SimpleRepo, 1)
+    def query("SELECT address FROM emails WHERE id = $1 LIMIT 1", [email_id]) do
+      case get_in(schema(), [:emails, email_id]) do
+        nil -> {:ok, %{rows: []}}
+        address -> {:ok, %{rows: [[address]]}}
+      end
+    end
+
+    def query("SELECT * FROM " <> rest, [user_id]) do
+      table = rest |> String.split(" ") |> hd()
+
+      case get_in(schema(), [String.to_atom(table), user_id]) do
+        nil ->
+          {:ok, %{columns: ["id"], rows: []}}
+
+        row ->
+          {columns, values} = row |> Map.to_list() |> Enum.unzip()
+          {:ok, %{columns: columns, rows: [values]}}
+      end
+    end
+
+    def query(_, _), do: {:ok, %{rows: []}}
+
+    defp schema, do: Process.get(:fake_repo_schema, %{})
+  end
+
+  defp with_schema(schema), do: Process.put(:fake_repo_schema, schema)
+
+  defp users_table(row), do: %{tables: ["users"], users: %{1 => Map.put(row, "id", 1)}}
+
+  describe "get_user_info/2 email discovery" do
+    test "reads email directly from the users table" do
+      with_schema(users_table(%{"email" => "john@example.com", "first_name" => "John", "last_name" => "Doe"}))
+
+      assert {:ok, user_info} = AutoDiscover.get_user_info(FakeRepo, 1)
       assert user_info.email == "john@example.com"
       assert user_info.name == "John Doe"
     end
-  end
 
-  describe "get_user_info/2 with separate emails table" do
-    defmodule EmailsTableRepo do
-      def query("SELECT EXISTS" <> _, ["users"]), do: {:ok, %{rows: [[true]]}}
-      def query("SELECT EXISTS" <> _, _), do: {:ok, %{rows: [[false]]}}
+    test "follows primary_email_id to the emails table" do
+      users_table(%{"first_name" => "Jane", "last_name" => "Smith", "primary_email_id" => 10})
+      |> Map.put(:emails, %{10 => "jane@example.com"})
+      |> with_schema()
 
-      def query("SELECT * FROM users WHERE id = $1 LIMIT 1", [1]) do
-        {:ok,
-         %{
-           columns: ["id", "primary_email_id", "first_name", "last_name"],
-           rows: [[1, 10, "Jane", "Smith"]]
-         }}
-      end
-
-      def query("SELECT address FROM emails WHERE id = $1 LIMIT 1", [10]) do
-        {:ok, %{rows: [["jane@example.com"]]}}
-      end
-
-      def query(_, _), do: {:ok, %{rows: []}}
-    end
-
-    test "follows foreign key to emails table" do
-      assert {:ok, user_info} = AutoDiscover.get_user_info(EmailsTableRepo, 1)
+      assert {:ok, user_info} = AutoDiscover.get_user_info(FakeRepo, 1)
       assert user_info.email == "jane@example.com"
       assert user_info.name == "Jane Smith"
     end
-  end
 
-  describe "get_user_info/2 with full_name field" do
-    defmodule FullNameRepo do
-      def query("SELECT EXISTS" <> _, ["users"]), do: {:ok, %{rows: [[true]]}}
-      def query("SELECT EXISTS" <> _, _), do: {:ok, %{rows: [[false]]}}
+    test "reads an email_address field" do
+      with_schema(
+        users_table(%{"email_address" => "charlie@example.com", "first_name" => "Charlie", "last_name" => "Brown"})
+      )
 
-      def query("SELECT * FROM users WHERE id = $1 LIMIT 1", [1]) do
-        {:ok,
-         %{
-           columns: ["id", "email", "full_name"],
-           rows: [[1, "bob@example.com", "Bob Johnson"]]
-         }}
-      end
-
-      def query(_, _), do: {:ok, %{rows: []}}
-    end
-
-    test "uses full_name when available" do
-      assert {:ok, user_info} = AutoDiscover.get_user_info(FullNameRepo, 1)
-      assert user_info.email == "bob@example.com"
-      assert user_info.name == "Bob Johnson"
-    end
-  end
-
-  describe "get_user_info/2 with single name field" do
-    defmodule SingleNameRepo do
-      def query("SELECT EXISTS" <> _, ["users"]), do: {:ok, %{rows: [[true]]}}
-      def query("SELECT EXISTS" <> _, _), do: {:ok, %{rows: [[false]]}}
-
-      def query("SELECT * FROM users WHERE id = $1 LIMIT 1", [1]) do
-        {:ok,
-         %{
-           columns: ["id", "email", "name"],
-           rows: [[1, "alice@example.com", "Alice"]]
-         }}
-      end
-
-      def query(_, _), do: {:ok, %{rows: []}}
-    end
-
-    test "uses name field when available" do
-      assert {:ok, user_info} = AutoDiscover.get_user_info(SingleNameRepo, 1)
-      assert user_info.email == "alice@example.com"
-      assert user_info.name == "Alice"
-    end
-  end
-
-  describe "get_user_info/2 with email_address field" do
-    defmodule EmailAddressRepo do
-      def query("SELECT EXISTS" <> _, ["users"]), do: {:ok, %{rows: [[true]]}}
-      def query("SELECT EXISTS" <> _, _), do: {:ok, %{rows: [[false]]}}
-
-      def query("SELECT * FROM users WHERE id = $1 LIMIT 1", [1]) do
-        {:ok,
-         %{
-           columns: ["id", "email_address", "first_name", "last_name"],
-           rows: [[1, "charlie@example.com", "Charlie", "Brown"]]
-         }}
-      end
-
-      def query(_, _), do: {:ok, %{rows: []}}
-    end
-
-    test "discovers email_address field" do
-      assert {:ok, user_info} = AutoDiscover.get_user_info(EmailAddressRepo, 1)
+      assert {:ok, user_info} = AutoDiscover.get_user_info(FakeRepo, 1)
       assert user_info.email == "charlie@example.com"
       assert user_info.name == "Charlie Brown"
     end
   end
 
-  describe "get_user_info/2 with only email (no name)" do
-    defmodule EmailOnlyRepo do
-      def query("SELECT EXISTS" <> _, ["users"]), do: {:ok, %{rows: [[true]]}}
-      def query("SELECT EXISTS" <> _, _), do: {:ok, %{rows: [[false]]}}
+  describe "get_user_info/2 name discovery" do
+    test "uses full_name when available" do
+      with_schema(users_table(%{"email" => "bob@example.com", "full_name" => "Bob Johnson"}))
 
-      def query("SELECT * FROM users WHERE id = $1 LIMIT 1", [1]) do
-        {:ok,
-         %{
-           columns: ["id", "email"],
-           rows: [[1, "minimal@example.com"]]
-         }}
-      end
-
-      def query(_, _), do: {:ok, %{rows: []}}
+      assert {:ok, %{name: "Bob Johnson"}} = AutoDiscover.get_user_info(FakeRepo, 1)
     end
 
-    test "handles users with only email field" do
-      assert {:ok, user_info} = AutoDiscover.get_user_info(EmailOnlyRepo, 1)
+    test "uses name when available" do
+      with_schema(users_table(%{"email" => "alice@example.com", "name" => "Alice"}))
+
+      assert {:ok, %{name: "Alice"}} = AutoDiscover.get_user_info(FakeRepo, 1)
+    end
+
+    test "returns nil name when only an email exists" do
+      with_schema(users_table(%{"email" => "minimal@example.com"}))
+
+      assert {:ok, user_info} = AutoDiscover.get_user_info(FakeRepo, 1)
       assert user_info.email == "minimal@example.com"
       assert user_info.name == nil
     end
   end
 
-  describe "get_user_info/2 with user table (singular)" do
-    defmodule SingularUserRepo do
-      def query("SELECT EXISTS" <> _, ["users"]), do: {:ok, %{rows: [[false]]}}
-      def query("SELECT EXISTS" <> _, ["user"]), do: {:ok, %{rows: [[true]]}}
-      def query("SELECT EXISTS" <> _, _), do: {:ok, %{rows: [[false]]}}
+  describe "get_user_info/2 table discovery" do
+    test "falls back to a singular user table" do
+      with_schema(%{
+        tables: ["user"],
+        user: %{1 => %{"email" => "singular@example.com", "id" => 1, "name" => "Singular User"}}
+      })
 
-      def query("SELECT * FROM user WHERE id = $1 LIMIT 1", [1]) do
-        {:ok,
-         %{
-           columns: ["id", "email", "name"],
-           rows: [[1, "singular@example.com", "Singular User"]]
-         }}
-      end
-
-      def query(_, _), do: {:ok, %{rows: []}}
-    end
-
-    test "discovers 'user' table (singular)" do
-      assert {:ok, user_info} = AutoDiscover.get_user_info(SingularUserRepo, 1)
+      assert {:ok, user_info} = AutoDiscover.get_user_info(FakeRepo, 1)
       assert user_info.email == "singular@example.com"
       assert user_info.name == "Singular User"
     end
   end
 
   describe "get_user_info/2 error cases" do
-    defmodule NoUserTableRepo do
-      def query("SELECT EXISTS" <> _, _), do: {:ok, %{rows: [[false]]}}
-      def query(_, _), do: {:ok, %{rows: []}}
-    end
+    test "returns a guidance message when no user table exists" do
+      with_schema(%{tables: []})
 
-    test "returns error when no user table exists" do
-      assert {:error, error_msg} = AutoDiscover.get_user_info(NoUserTableRepo, 1)
+      assert {:error, error_msg} = AutoDiscover.get_user_info(FakeRepo, 1)
       assert error_msg =~ "could not auto-discover your user table"
       assert error_msg =~ "implement a custom UserAdapter"
     end
 
-    defmodule NoEmailFieldRepo do
-      def query("SELECT EXISTS" <> _, ["users"]), do: {:ok, %{rows: [[true]]}}
-      def query("SELECT EXISTS" <> _, _), do: {:ok, %{rows: [[false]]}}
+    test "returns a guidance message when no email field can be discovered" do
+      with_schema(users_table(%{"first_name" => "John", "username" => "johndoe"}))
 
-      def query("SELECT * FROM users WHERE id = $1 LIMIT 1", [1]) do
-        {:ok,
-         %{
-           columns: ["id", "username", "first_name"],
-           rows: [[1, "johndoe", "John"]]
-         }}
-      end
-
-      def query(_, _), do: {:ok, %{rows: []}}
-    end
-
-    test "returns error when email field cannot be discovered" do
-      assert {:error, error_msg} = AutoDiscover.get_user_info(NoEmailFieldRepo, 1)
+      assert {:error, error_msg} = AutoDiscover.get_user_info(FakeRepo, 1)
       assert is_binary(error_msg)
       assert error_msg =~ "email field"
       assert error_msg =~ "UserAdapter"
     end
 
-    defmodule UserNotFoundRepo do
-      def query("SELECT EXISTS" <> _, ["users"]), do: {:ok, %{rows: [[true]]}}
-      def query("SELECT EXISTS" <> _, _), do: {:ok, %{rows: [[false]]}}
+    test "returns :user_not_found for an unknown id" do
+      with_schema(users_table(%{"email" => "john@example.com"}))
 
-      def query("SELECT * FROM users WHERE id = $1 LIMIT 1", [999]) do
-        {:ok, %{columns: ["id", "email"], rows: []}}
-      end
-
-      def query(_, _), do: {:ok, %{rows: []}}
+      assert {:error, :user_not_found} = AutoDiscover.get_user_info(FakeRepo, 999)
     end
 
-    test "returns error when user not found" do
-      assert {:error, :user_not_found} = AutoDiscover.get_user_info(UserNotFoundRepo, 999)
-    end
+    test "treats a dangling primary_email_id as a missing email field" do
+      with_schema(users_table(%{"name" => "Test User", "primary_email_id" => 999}))
 
-    defmodule MissingEmailRecordRepo do
-      def query("SELECT EXISTS" <> _, ["users"]), do: {:ok, %{rows: [[true]]}}
-      def query("SELECT EXISTS" <> _, _), do: {:ok, %{rows: [[false]]}}
-
-      def query("SELECT * FROM users WHERE id = $1 LIMIT 1", [1]) do
-        {:ok,
-         %{
-           columns: ["id", "primary_email_id", "name"],
-           rows: [[1, 999, "Test User"]]
-         }}
-      end
-
-      def query("SELECT address FROM emails WHERE id = $1 LIMIT 1", [999]) do
-        {:ok, %{rows: []}}
-      end
-
-      def query(_, _), do: {:ok, %{rows: []}}
-    end
-
-    test "returns error when email record not found in separate table" do
-      # When email record is not found, it falls back to :no_email_field error
-      assert {:error, error_msg} = AutoDiscover.get_user_info(MissingEmailRecordRepo, 1)
+      assert {:error, error_msg} = AutoDiscover.get_user_info(FakeRepo, 1)
       assert is_binary(error_msg)
     end
   end
@@ -250,7 +147,6 @@ defmodule PaperTiger.UserAdapters.AutoDiscoverTest do
 
       @impl true
       def get_user_info(_repo, user_id) do
-        # Custom logic for a specific schema
         {:ok, %{email: "custom#{user_id}@example.com", name: "Custom User #{user_id}"}}
       end
     end

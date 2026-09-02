@@ -22,11 +22,11 @@ defmodule PaperTiger.Resources.PaymentLink do
       maybe_store_idempotency(conn, payment_link)
 
       payment_link
-      |> maybe_expand(conn.params)
+      |> expand_payment_link(conn.params)
       |> then(&json_response(conn, 200, &1))
     else
       {:error, :invalid_params, field} ->
-        error_response(conn, PaperTiger.Error.invalid_request("Missing required parameter", field))
+        missing_param_response(conn, field)
 
       {:error, :invalid_line_items, message} ->
         error_response(conn, PaperTiger.Error.invalid_request(message, "line_items"))
@@ -41,7 +41,7 @@ defmodule PaperTiger.Resources.PaymentLink do
     case PaymentLinks.get(id) do
       {:ok, payment_link} ->
         payment_link
-        |> maybe_expand(conn.params)
+        |> expand_payment_link(conn.params)
         |> then(&json_response(conn, 200, &1))
 
       {:error, :not_found} ->
@@ -58,7 +58,7 @@ defmodule PaperTiger.Resources.PaymentLink do
          {:ok, updated} <- update_payment_link(existing, conn.params),
          {:ok, updated} <- PaymentLinks.update(updated) do
       updated
-      |> maybe_expand(conn.params)
+      |> expand_payment_link(conn.params)
       |> then(&json_response(conn, 200, &1))
     else
       {:error, :not_found} ->
@@ -377,7 +377,7 @@ defmodule PaperTiger.Resources.PaymentLink do
 
   defp success_url(payment_link), do: "#{base_url()}/payment_links/#{payment_link.id}/complete"
 
-  defp maybe_expand(payment_link, params) do
+  defp expand_payment_link(payment_link, params) do
     expand_params = parse_expand_params(params)
 
     payment_link =

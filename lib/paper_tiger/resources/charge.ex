@@ -77,10 +77,7 @@ defmodule PaperTiger.Resources.Charge do
       |> then(&json_response(conn, 200, &1))
     else
       {:error, :invalid_params, field} ->
-        error_response(
-          conn,
-          PaperTiger.Error.invalid_request("Missing required parameter", field)
-        )
+        missing_param_response(conn, field)
     end
   end
 
@@ -100,17 +97,7 @@ defmodule PaperTiger.Resources.Charge do
   Retrieves a charge by ID.
   """
   @spec retrieve(Plug.Conn.t(), String.t()) :: Plug.Conn.t()
-  def retrieve(conn, id) do
-    case Charges.get(id) do
-      {:ok, charge} ->
-        charge
-        |> maybe_expand(conn.params)
-        |> then(&json_response(conn, 200, &1))
-
-      {:error, :not_found} ->
-        error_response(conn, PaperTiger.Error.not_found("charge", id))
-    end
-  end
+  def retrieve(conn, id), do: retrieve_response(conn, Charges, "charge", id)
 
   @doc """
   Updates a charge.
@@ -124,28 +111,18 @@ defmodule PaperTiger.Resources.Charge do
   """
   @spec update(Plug.Conn.t(), String.t()) :: Plug.Conn.t()
   def update(conn, id) do
-    with {:ok, existing} <- Charges.get(id),
-         updated =
-           merge_updates(existing, conn.params, [
-             :id,
-             :object,
-             :created,
-             :amount,
-             :currency,
-             :status,
-             :customer,
-             :payment_method,
-             :refunded,
-             :amount_refunded
-           ]),
-         {:ok, updated} <- Charges.update(updated) do
-      updated
-      |> maybe_expand(conn.params)
-      |> then(&json_response(conn, 200, &1))
-    else
-      {:error, :not_found} ->
-        error_response(conn, PaperTiger.Error.not_found("charge", id))
-    end
+    update_response(conn, Charges, "charge", id, [
+      :id,
+      :object,
+      :created,
+      :amount,
+      :currency,
+      :status,
+      :customer,
+      :payment_method,
+      :refunded,
+      :amount_refunded
+    ])
   end
 
   @doc """
@@ -160,13 +137,7 @@ defmodule PaperTiger.Resources.Charge do
   - status - Filter by status (succeeded, pending, failed)
   """
   @spec list(Plug.Conn.t()) :: Plug.Conn.t()
-  def list(conn) do
-    pagination_opts = parse_pagination_params(conn.params)
-
-    result = Charges.list(pagination_opts)
-
-    json_response(conn, 200, result)
-  end
+  def list(conn), do: list_response(conn, Charges)
 
   @doc """
   Searches charges with Stripe-style search query syntax.
@@ -181,9 +152,6 @@ defmodule PaperTiger.Resources.Charge do
     )
     |> respond_to_search(conn)
   end
-
-  defp respond_to_search({:ok, result}, conn), do: json_response(conn, 200, result)
-  defp respond_to_search({:error, error}, conn), do: error_response(conn, error)
 
   defp build_charge(params) do
     amount = get_integer(params, :amount)
@@ -217,10 +185,5 @@ defmodule PaperTiger.Resources.Charge do
       statement_descriptor: Map.get(params, :statement_descriptor),
       status: Map.get(params, :status, "succeeded")
     }
-  end
-
-  defp maybe_expand(charge, params) do
-    expand_params = parse_expand_params(params)
-    PaperTiger.Hydrator.hydrate(charge, expand_params)
   end
 end

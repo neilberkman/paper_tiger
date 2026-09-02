@@ -36,17 +36,7 @@ defmodule PaperTiger.Resources.Event do
   Retrieves an event by ID.
   """
   @spec retrieve(Plug.Conn.t(), String.t()) :: Plug.Conn.t()
-  def retrieve(conn, id) do
-    case Events.get(id) do
-      {:ok, event} ->
-        event
-        |> maybe_expand(conn.params)
-        |> then(&json_response(conn, 200, &1))
-
-      {:error, :not_found} ->
-        error_response(conn, PaperTiger.Error.not_found("event", id))
-    end
-  end
+  def retrieve(conn, id), do: retrieve_response(conn, Events, "event", id)
 
   @doc """
   Lists all events with pagination.
@@ -59,18 +49,7 @@ defmodule PaperTiger.Resources.Event do
   - type - Filter by event type
   """
   @spec list(Plug.Conn.t()) :: Plug.Conn.t()
-  def list(conn) do
-    pagination_opts = parse_pagination_params(conn.params)
-
-    result = Events.list(pagination_opts)
-
-    json_response(conn, 200, result)
-  end
+  def list(conn), do: list_response(conn, Events)
 
   ## Private Functions
-
-  defp maybe_expand(event, params) do
-    expand_params = parse_expand_params(params)
-    PaperTiger.Hydrator.hydrate(event, expand_params)
-  end
 end

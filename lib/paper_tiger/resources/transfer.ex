@@ -29,7 +29,7 @@ defmodule PaperTiger.Resources.Transfer do
       |> then(&json_response(conn, 200, &1))
     else
       {:error, :invalid_params, field} ->
-        error_response(conn, PaperTiger.Error.invalid_request("Missing required parameter", field))
+        missing_param_response(conn, field)
 
       amount when is_integer(amount) ->
         error_response(conn, PaperTiger.Error.invalid_request("Amount must be greater than zero", "amount"))
@@ -43,17 +43,7 @@ defmodule PaperTiger.Resources.Transfer do
   Retrieves a transfer.
   """
   @spec retrieve(Plug.Conn.t(), String.t()) :: Plug.Conn.t()
-  def retrieve(conn, id) do
-    case Transfers.get(id) do
-      {:ok, transfer} ->
-        transfer
-        |> maybe_expand(conn.params)
-        |> then(&json_response(conn, 200, &1))
-
-      {:error, :not_found} ->
-        error_response(conn, PaperTiger.Error.not_found("transfer", id))
-    end
-  end
+  def retrieve(conn, id), do: retrieve_response(conn, Transfers, "transfer", id)
 
   @doc """
   Updates a transfer. Stripe only allows metadata updates; PaperTiger also keeps
@@ -61,27 +51,17 @@ defmodule PaperTiger.Resources.Transfer do
   """
   @spec update(Plug.Conn.t(), String.t()) :: Plug.Conn.t()
   def update(conn, id) do
-    with {:ok, existing} <- Transfers.get(id),
-         updated =
-           merge_updates(existing, conn.params, [
-             :id,
-             :object,
-             :created,
-             :amount,
-             :currency,
-             :destination,
-             :destination_payment,
-             :reversed,
-             :amount_reversed
-           ]),
-         {:ok, updated} <- Transfers.update(updated) do
-      updated
-      |> maybe_expand(conn.params)
-      |> then(&json_response(conn, 200, &1))
-    else
-      {:error, :not_found} ->
-        error_response(conn, PaperTiger.Error.not_found("transfer", id))
-    end
+    update_response(conn, Transfers, "transfer", id, [
+      :id,
+      :object,
+      :created,
+      :amount,
+      :currency,
+      :destination,
+      :destination_payment,
+      :reversed,
+      :amount_reversed
+    ])
   end
 
   @doc """
@@ -94,8 +74,7 @@ defmodule PaperTiger.Resources.Transfer do
     result =
       case Map.get(conn.params, :destination) do
         destination when is_binary(destination) and destination != "" ->
-          destination
-          |> Transfers.find_by_destination()
+          Transfers.find_by(:destination, destination)
           |> PaperTiger.List.paginate(Map.put(pagination_opts, :url, "/v1/transfers"))
 
         _ ->
@@ -175,8 +154,7 @@ defmodule PaperTiger.Resources.Transfer do
       {:ok, _transfer} ->
         pagination_opts = parse_pagination_params(conn.params)
 
-        transfer_id
-        |> TransferReversals.find_by_transfer()
+        TransferReversals.find_by(:transfer, transfer_id)
         |> PaperTiger.List.paginate(Map.put(pagination_opts, :url, "/v1/transfers/#{transfer_id}/reversals"))
         |> then(&json_response(conn, 200, &1))
 
@@ -310,10 +288,5 @@ defmodule PaperTiger.Resources.Transfer do
     list
     |> Map.put(:data, data)
     |> Map.put(:total_count, Map.get(list, :total_count, 0) + 1)
-  end
-
-  defp maybe_expand(transfer, params) do
-    expand_params = parse_expand_params(params)
-    PaperTiger.Hydrator.hydrate(transfer, expand_params)
   end
 end

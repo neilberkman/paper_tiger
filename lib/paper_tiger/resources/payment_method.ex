@@ -72,10 +72,7 @@ defmodule PaperTiger.Resources.PaymentMethod do
       |> then(&json_response(conn, 200, &1))
     else
       {:error, :invalid_params, field} ->
-        error_response(
-          conn,
-          PaperTiger.Error.invalid_request("Missing required parameter", field)
-        )
+        missing_param_response(conn, field)
     end
   end
 
@@ -83,17 +80,7 @@ defmodule PaperTiger.Resources.PaymentMethod do
   Retrieves a payment method by ID.
   """
   @spec retrieve(Plug.Conn.t(), String.t()) :: Plug.Conn.t()
-  def retrieve(conn, id) do
-    case PaymentMethods.get(id) do
-      {:ok, payment_method} ->
-        payment_method
-        |> maybe_expand(conn.params)
-        |> then(&json_response(conn, 200, &1))
-
-      {:error, :not_found} ->
-        error_response(conn, PaperTiger.Error.not_found("payment_method", id))
-    end
-  end
+  def retrieve(conn, id), do: retrieve_response(conn, PaymentMethods, "payment_method", id)
 
   @doc """
   Updates a payment method.
@@ -106,26 +93,8 @@ defmodule PaperTiger.Resources.PaymentMethod do
   - billing_details
   """
   @spec update(Plug.Conn.t(), String.t()) :: Plug.Conn.t()
-  def update(conn, id) do
-    with {:ok, existing} <- PaymentMethods.get(id),
-         updated =
-           merge_updates(existing, conn.params, [
-             :id,
-             :object,
-             :created,
-             :type,
-             :customer,
-             :card
-           ]),
-         {:ok, updated} <- PaymentMethods.update(updated) do
-      updated
-      |> maybe_expand(conn.params)
-      |> then(&json_response(conn, 200, &1))
-    else
-      {:error, :not_found} ->
-        error_response(conn, PaperTiger.Error.not_found("payment_method", id))
-    end
-  end
+  def update(conn, id),
+    do: update_response(conn, PaymentMethods, "payment_method", id, [:id, :object, :created, :type, :customer, :card])
 
   @doc """
   Deletes a payment method.
@@ -133,21 +102,7 @@ defmodule PaperTiger.Resources.PaymentMethod do
   Returns a deletion confirmation object.
   """
   @spec delete(Plug.Conn.t(), String.t()) :: Plug.Conn.t()
-  def delete(conn, id) do
-    case PaymentMethods.get(id) do
-      {:ok, _payment_method} ->
-        :ok = PaymentMethods.delete(id)
-
-        json_response(conn, 200, %{
-          deleted: true,
-          id: id,
-          object: "payment_method"
-        })
-
-      {:error, :not_found} ->
-        error_response(conn, PaperTiger.Error.not_found("payment_method", id))
-    end
-  end
+  def delete(conn, id), do: delete_response(conn, PaymentMethods, "payment_method", id)
 
   @doc """
   Lists payment methods for a customer.
@@ -170,7 +125,7 @@ defmodule PaperTiger.Resources.PaymentMethod do
     pagination_opts = parse_pagination_params(conn.params)
     customer_id = get_string_param(conn.params, :customer)
 
-    payment_methods = PaymentMethods.find_by_customer(customer_id)
+    payment_methods = PaymentMethods.find_by(:customer, customer_id)
     result = PaperTiger.List.paginate(payment_methods, Map.put(pagination_opts, :url, "/v1/payment_methods"))
 
     json_response(conn, 200, result)
@@ -318,10 +273,5 @@ defmodule PaperTiger.Resources.PaymentMethod do
 
   defp detach_from_customer(payment_method) do
     %{payment_method | customer: nil}
-  end
-
-  defp maybe_expand(payment_method, params) do
-    expand_params = parse_expand_params(params)
-    PaperTiger.Hydrator.hydrate(payment_method, expand_params)
   end
 end

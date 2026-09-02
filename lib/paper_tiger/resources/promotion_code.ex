@@ -25,7 +25,7 @@ defmodule PaperTiger.Resources.PromotionCode do
       |> then(&json_response(conn, 200, &1))
     else
       {:error, :invalid_params, field} ->
-        error_response(conn, PaperTiger.Error.invalid_request("Missing required parameter", field))
+        missing_param_response(conn, field)
 
       {:error, :invalid_promotion} ->
         error_response(conn, PaperTiger.Error.invalid_request("Invalid promotion", "promotion"))
@@ -40,17 +40,7 @@ defmodule PaperTiger.Resources.PromotionCode do
   Retrieves a Promotion Code.
   """
   @spec retrieve(Plug.Conn.t(), String.t()) :: Plug.Conn.t()
-  def retrieve(conn, id) do
-    case PromotionCodes.get(id) do
-      {:ok, promotion_code} ->
-        promotion_code
-        |> maybe_expand(conn.params)
-        |> then(&json_response(conn, 200, &1))
-
-      {:error, :not_found} ->
-        error_response(conn, PaperTiger.Error.not_found("promotion_code", id))
-    end
-  end
+  def retrieve(conn, id), do: retrieve_response(conn, PromotionCodes, "promotion_code", id)
 
   @doc """
   Updates a Promotion Code.
@@ -153,12 +143,6 @@ defmodule PaperTiger.Resources.PromotionCode do
     }
   end
 
-  defp maybe_expand(promotion_code, params) do
-    params
-    |> parse_expand_params()
-    |> then(&PaperTiger.Hydrator.hydrate(promotion_code, &1))
-  end
-
   defp generated_code do
     :crypto.strong_rand_bytes(6)
     |> Base.encode16(case: :upper)
@@ -172,7 +156,4 @@ defmodule PaperTiger.Resources.PromotionCode do
       default
     end
   end
-
-  defp param(map, key) when is_map(map) and is_atom(key), do: Map.get(map, key) || Map.get(map, Atom.to_string(key))
-  defp param(_map, _key), do: nil
 end

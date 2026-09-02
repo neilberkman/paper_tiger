@@ -74,17 +74,7 @@ defmodule PaperTiger.Resources.Customer do
   Retrieves a customer by ID.
   """
   @spec retrieve(Plug.Conn.t(), String.t()) :: Plug.Conn.t()
-  def retrieve(conn, id) do
-    case Customers.get(id) do
-      {:ok, customer} ->
-        customer
-        |> maybe_expand(conn.params)
-        |> then(&json_response(conn, 200, &1))
-
-      {:error, :not_found} ->
-        error_response(conn, PaperTiger.Error.not_found("customer", id))
-    end
-  end
+  def retrieve(conn, id), do: retrieve_response(conn, Customers, "customer", id)
 
   @doc """
   Updates a customer.
@@ -157,7 +147,7 @@ defmodule PaperTiger.Resources.Customer do
     result =
       case Map.get(conn.params, :email) do
         email when is_binary(email) and email != "" ->
-          customers = Customers.find_by_email(email)
+          customers = Customers.find_by(:email, email)
           PaperTiger.List.paginate(customers, Map.put(pagination_opts, :url, "/v1/customers"))
 
         _ ->
@@ -182,8 +172,6 @@ defmodule PaperTiger.Resources.Customer do
   end
 
   ## Private Functions
-  defp respond_to_search({:ok, result}, conn), do: json_response(conn, 200, result)
-  defp respond_to_search({:error, error}, conn), do: error_response(conn, error)
 
   # Use provided created timestamp or default to now
   defp build_customer(params) do
@@ -213,10 +201,5 @@ defmodule PaperTiger.Resources.Customer do
       shipping: Map.get(params, :shipping),
       tax_exempt: "none"
     }
-  end
-
-  defp maybe_expand(customer, params) do
-    expand_params = parse_expand_params(params)
-    PaperTiger.Hydrator.hydrate(customer, expand_params)
   end
 end

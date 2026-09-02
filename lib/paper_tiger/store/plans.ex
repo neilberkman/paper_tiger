@@ -23,8 +23,8 @@ defmodule PaperTiger.Store.Plans do
       {:ok, plan} = PaperTiger.Store.Plans.insert(plan)
 
       # Query helpers (direct ETS access)
-      plans = PaperTiger.Store.Plans.find_by_product("prod_123")
-      active_plans = PaperTiger.Store.Plans.find_active()
+      plans = PaperTiger.Store.Plans.find_by(:product, "prod_123")
+      active_plans = PaperTiger.Store.Plans.find_by(:active, true)
   """
 
   use PaperTiger.Store,
@@ -32,25 +32,9 @@ defmodule PaperTiger.Store.Plans do
     resource: "plan",
     prefix: "plan"
 
-  @doc """
-  Finds plans by product ID.
+  @deprecated "Use find_by/2"
+  def find_by_product(value), do: find_by(:product, value)
 
-  **Direct ETS access** - does not go through GenServer.
-  """
-  @spec find_by_product(String.t()) :: [map()]
-  def find_by_product(product_id) when is_binary(product_id) do
-    :ets.match_object(@table, {:_, %{product: product_id}})
-    |> Enum.map(fn {_id, plan} -> plan end)
-  end
-
-  @doc """
-  Finds active plans.
-
-  **Direct ETS access** - does not go through GenServer.
-  """
-  @spec find_active() :: [map()]
-  def find_active do
-    :ets.match_object(@table, {:_, %{active: true}})
-    |> Enum.map(fn {_id, plan} -> plan end)
-  end
+  @deprecated "Use find_by/2"
+  def find_active, do: find_by(:active, true)
 end

@@ -74,17 +74,7 @@ defmodule PaperTiger.Resources.Token do
   Retrieves a token by ID.
   """
   @spec retrieve(Plug.Conn.t(), String.t()) :: Plug.Conn.t()
-  def retrieve(conn, id) do
-    case Tokens.get(id) do
-      {:ok, token} ->
-        token
-        |> maybe_expand(conn.params)
-        |> then(&json_response(conn, 200, &1))
-
-      {:error, :not_found} ->
-        error_response(conn, PaperTiger.Error.not_found("token", id))
-    end
-  end
+  def retrieve(conn, id), do: retrieve_response(conn, Tokens, "token", id)
 
   ## Private Functions
 
@@ -172,10 +162,5 @@ defmodule PaperTiger.Resources.Token do
   defp generate_fingerprint do
     :crypto.strong_rand_bytes(8)
     |> Base.encode16(case: :lower)
-  end
-
-  defp maybe_expand(token, params) do
-    expand_params = parse_expand_params(params)
-    PaperTiger.Hydrator.hydrate(token, expand_params)
   end
 end

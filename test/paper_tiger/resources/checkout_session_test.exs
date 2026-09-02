@@ -10,37 +10,9 @@ defmodule PaperTiger.Resources.CheckoutSessionTest do
   5. POST /_test/checkout/sessions/:id/complete - Complete checkout session (test helper)
   """
 
-  use ExUnit.Case, async: true
-
-  import PaperTiger.Test
-
-  alias PaperTiger.Router
+  use PaperTiger.RouterCase, async: true, api_key: "sk_test_checkout_key"
 
   setup :checkout_paper_tiger
-
-  defp conn(method, path, params, headers) do
-    conn = Plug.Test.conn(method, path, params)
-
-    headers_with_defaults =
-      headers ++
-        [
-          {"content-type", "application/json"},
-          {"authorization", "Bearer sk_test_checkout_key"}
-        ] ++ sandbox_headers()
-
-    Enum.reduce(headers_with_defaults, conn, fn {key, value}, acc ->
-      Plug.Conn.put_req_header(acc, key, value)
-    end)
-  end
-
-  defp request(method, path, params \\ nil, headers \\ []) do
-    conn = conn(method, path, params, headers)
-    Router.call(conn, [])
-  end
-
-  defp json_response(conn) do
-    Jason.decode!(conn.resp_body)
-  end
 
   describe "POST /v1/checkout/sessions - Create" do
     test "creates a checkout session with required fields" do

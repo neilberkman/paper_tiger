@@ -64,10 +64,7 @@ defmodule PaperTiger.Resources.Refund do
       |> then(&json_response(conn, 200, &1))
     else
       {:error, :invalid_params, field} ->
-        error_response(
-          conn,
-          PaperTiger.Error.invalid_request("Missing required parameter", field)
-        )
+        missing_param_response(conn, field)
 
       {:error, :charge_not_found, charge_id} ->
         error_response(conn, PaperTiger.Error.not_found("charge", charge_id))
@@ -91,17 +88,7 @@ defmodule PaperTiger.Resources.Refund do
   Retrieves a refund by ID.
   """
   @spec retrieve(Plug.Conn.t(), String.t()) :: Plug.Conn.t()
-  def retrieve(conn, id) do
-    case Refunds.get(id) do
-      {:ok, refund} ->
-        refund
-        |> maybe_expand(conn.params)
-        |> then(&json_response(conn, 200, &1))
-
-      {:error, :not_found} ->
-        error_response(conn, PaperTiger.Error.not_found("refund", id))
-    end
-  end
+  def retrieve(conn, id), do: retrieve_response(conn, Refunds, "refund", id)
 
   @doc """
   Updates a refund.
@@ -114,26 +101,7 @@ defmodule PaperTiger.Resources.Refund do
   """
   @spec update(Plug.Conn.t(), String.t()) :: Plug.Conn.t()
   def update(conn, id) do
-    with {:ok, existing} <- Refunds.get(id),
-         updated =
-           merge_updates(existing, conn.params, [
-             :id,
-             :object,
-             :created,
-             :amount,
-             :charge,
-             :currency,
-             :status,
-             :reason
-           ]),
-         {:ok, updated} <- Refunds.update(updated) do
-      updated
-      |> maybe_expand(conn.params)
-      |> then(&json_response(conn, 200, &1))
-    else
-      {:error, :not_found} ->
-        error_response(conn, PaperTiger.Error.not_found("refund", id))
-    end
+    update_response(conn, Refunds, "refund", id, [:id, :object, :created, :amount, :charge, :currency, :status, :reason])
   end
 
   @doc """
@@ -264,10 +232,5 @@ defmodule PaperTiger.Resources.Refund do
       amount when is_integer(amount) and amount > 0 -> amount
       _ -> Map.get(charge, :amount, 0)
     end
-  end
-
-  defp maybe_expand(refund, params) do
-    expand_params = parse_expand_params(params)
-    PaperTiger.Hydrator.hydrate(refund, expand_params)
   end
 end

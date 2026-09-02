@@ -42,17 +42,7 @@ defmodule PaperTiger.Resources.ConfirmationToken do
   Retrieves a ConfirmationToken by ID.
   """
   @spec retrieve(Plug.Conn.t(), String.t()) :: Plug.Conn.t()
-  def retrieve(conn, id) do
-    case ConfirmationTokens.get(id) do
-      {:ok, token} ->
-        token
-        |> maybe_expand(conn.params)
-        |> then(&json_response(conn, 200, &1))
-
-      {:error, :not_found} ->
-        error_response(conn, PaperTiger.Error.not_found("confirmation_token", id))
-    end
-  end
+  def retrieve(conn, id), do: retrieve_response(conn, ConfirmationTokens, "confirmation_token", id)
 
   @doc """
   Consumes a ConfirmationToken for an intent confirmation.
@@ -268,18 +258,5 @@ defmodule PaperTiger.Resources.ConfirmationToken do
       end
 
     Map.get(map, key) || if(atom_key, do: Map.get(map, atom_key))
-  end
-
-  defp param(map, key, default \\ nil)
-
-  defp param(map, key, default) when is_map(map) and is_atom(key) do
-    Map.get(map, key) || Map.get(map, Atom.to_string(key)) || default
-  end
-
-  defp param(_map, _key, default), do: default
-
-  defp maybe_expand(token, params) do
-    expand_params = parse_expand_params(params)
-    PaperTiger.Hydrator.hydrate(token, expand_params)
   end
 end

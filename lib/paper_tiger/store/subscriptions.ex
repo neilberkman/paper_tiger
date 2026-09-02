@@ -23,8 +23,8 @@ defmodule PaperTiger.Store.Subscriptions do
       {:ok, subscription} = PaperTiger.Store.Subscriptions.insert(subscription)
 
       # Query helpers (direct ETS access)
-      subscriptions = PaperTiger.Store.Subscriptions.find_by_customer("cus_123")
-      active_subscriptions = PaperTiger.Store.Subscriptions.find_active()
+      subscriptions = PaperTiger.Store.Subscriptions.find_by(:customer, "cus_123")
+      active_subscriptions = PaperTiger.Store.Subscriptions.find_by(:status, "active")
   """
 
   use PaperTiger.Store,
@@ -32,29 +32,9 @@ defmodule PaperTiger.Store.Subscriptions do
     resource: "subscription",
     prefix: "sub"
 
-  @doc """
-  Finds subscriptions by customer ID.
+  @deprecated "Use find_by/2"
+  def find_by_customer(value), do: find_by(:customer, value)
 
-  **Direct ETS access** - does not go through GenServer.
-
-  Returns all subscriptions for the given customer, regardless of status.
-  """
-  @spec find_by_customer(String.t()) :: [map()]
-  def find_by_customer(customer_id) when is_binary(customer_id) do
-    :ets.match_object(@table, {:_, %{customer: customer_id}})
-    |> Enum.map(fn {_id, subscription} -> subscription end)
-  end
-
-  @doc """
-  Finds all active subscriptions.
-
-  **Direct ETS access** - does not go through GenServer.
-
-  Returns subscriptions with status "active".
-  """
-  @spec find_active() :: [map()]
-  def find_active do
-    :ets.match_object(@table, {:_, %{status: "active"}})
-    |> Enum.map(fn {_id, subscription} -> subscription end)
-  end
+  @deprecated "Use find_by/2"
+  def find_active, do: find_by(:status, "active")
 end

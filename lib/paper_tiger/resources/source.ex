@@ -59,10 +59,7 @@ defmodule PaperTiger.Resources.Source do
       |> then(&json_response(conn, 200, &1))
     else
       {:error, :invalid_params, field} ->
-        error_response(
-          conn,
-          PaperTiger.Error.invalid_request("Missing required parameter", field)
-        )
+        missing_param_response(conn, field)
     end
   end
 
@@ -70,17 +67,7 @@ defmodule PaperTiger.Resources.Source do
   Retrieves a source by ID.
   """
   @spec retrieve(Plug.Conn.t(), String.t()) :: Plug.Conn.t()
-  def retrieve(conn, id) do
-    case Sources.get(id) do
-      {:ok, source} ->
-        source
-        |> maybe_expand(conn.params)
-        |> then(&json_response(conn, 200, &1))
-
-      {:error, :not_found} ->
-        error_response(conn, PaperTiger.Error.not_found("source", id))
-    end
-  end
+  def retrieve(conn, id), do: retrieve_response(conn, Sources, "source", id)
 
   @doc """
   Updates a source.
@@ -95,27 +82,17 @@ defmodule PaperTiger.Resources.Source do
   """
   @spec update(Plug.Conn.t(), String.t()) :: Plug.Conn.t()
   def update(conn, id) do
-    with {:ok, existing} <- Sources.get(id),
-         updated =
-           merge_updates(existing, conn.params, [
-             :id,
-             :object,
-             :created,
-             :type,
-             :customer,
-             :status,
-             :amount,
-             :currency,
-             :livemode
-           ]),
-         {:ok, updated} <- Sources.update(updated) do
-      updated
-      |> maybe_expand(conn.params)
-      |> then(&json_response(conn, 200, &1))
-    else
-      {:error, :not_found} ->
-        error_response(conn, PaperTiger.Error.not_found("source", id))
-    end
+    update_response(conn, Sources, "source", id, [
+      :id,
+      :object,
+      :created,
+      :type,
+      :customer,
+      :status,
+      :amount,
+      :currency,
+      :livemode
+    ])
   end
 
   @doc """
@@ -138,7 +115,7 @@ defmodule PaperTiger.Resources.Source do
           Sources.list(pagination_opts)
 
         customer_id ->
-          sources = Sources.find_by_customer(customer_id)
+          sources = Sources.find_by(:customer, customer_id)
           PaperTiger.List.paginate(sources, Map.put(pagination_opts, :url, "/v1/sources"))
       end
 
@@ -172,10 +149,5 @@ defmodule PaperTiger.Resources.Source do
       status: Map.get(params, :status, "pending"),
       type: Map.get(params, :type)
     }
-  end
-
-  defp maybe_expand(source, params) do
-    expand_params = parse_expand_params(params)
-    PaperTiger.Hydrator.hydrate(source, expand_params)
   end
 end

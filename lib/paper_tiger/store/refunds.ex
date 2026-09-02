@@ -23,7 +23,7 @@ defmodule PaperTiger.Store.Refunds do
       {:ok, refund} = PaperTiger.Store.Refunds.insert(refund)
 
       # Query helpers (direct ETS access)
-      refunds = PaperTiger.Store.Refunds.find_by_charge("ch_123")
+      refunds = PaperTiger.Store.Refunds.find_by(:charge, "ch_123")
   """
 
   use PaperTiger.Store,
@@ -31,14 +31,6 @@ defmodule PaperTiger.Store.Refunds do
     resource: "refund",
     prefix: "re"
 
-  @doc """
-  Finds refunds by charge ID.
-
-  **Direct ETS access** - does not go through GenServer.
-  """
-  @spec find_by_charge(String.t()) :: [map()]
-  def find_by_charge(charge_id) when is_binary(charge_id) do
-    :ets.match_object(@table, {:_, %{charge: charge_id}})
-    |> Enum.map(fn {_id, refund} -> refund end)
-  end
+  @deprecated "Use find_by/2"
+  def find_by_charge(value), do: find_by(:charge, value)
 end

@@ -79,10 +79,7 @@ defmodule PaperTiger.Resources.PaymentIntent do
       |> then(&json_response(conn, 200, &1))
     else
       {:error, :invalid_params, field} ->
-        error_response(
-          conn,
-          PaperTiger.Error.invalid_request("Missing required parameter", field)
-        )
+        missing_param_response(conn, field)
     end
   end
 
@@ -90,17 +87,7 @@ defmodule PaperTiger.Resources.PaymentIntent do
   Retrieves a payment intent by ID.
   """
   @spec retrieve(Plug.Conn.t(), String.t()) :: Plug.Conn.t()
-  def retrieve(conn, id) do
-    case PaymentIntents.get(id) do
-      {:ok, payment_intent} ->
-        payment_intent
-        |> maybe_expand(conn.params)
-        |> then(&json_response(conn, 200, &1))
-
-      {:error, :not_found} ->
-        error_response(conn, PaperTiger.Error.not_found("payment_intent", id))
-    end
-  end
+  def retrieve(conn, id), do: retrieve_response(conn, PaymentIntents, "payment_intent", id)
 
   @doc """
   Updates a payment intent.
@@ -115,25 +102,8 @@ defmodule PaperTiger.Resources.PaymentIntent do
   - statement_descriptor
   """
   @spec update(Plug.Conn.t(), String.t()) :: Plug.Conn.t()
-  def update(conn, id) do
-    with {:ok, existing} <- PaymentIntents.get(id),
-         updated =
-           merge_updates(existing, conn.params, [
-             :id,
-             :object,
-             :created,
-             :currency,
-             :status
-           ]),
-         {:ok, updated} <- PaymentIntents.update(updated) do
-      updated
-      |> maybe_expand(conn.params)
-      |> then(&json_response(conn, 200, &1))
-    else
-      {:error, :not_found} ->
-        error_response(conn, PaperTiger.Error.not_found("payment_intent", id))
-    end
-  end
+  def update(conn, id),
+    do: update_response(conn, PaymentIntents, "payment_intent", id, [:id, :object, :created, :currency, :status])
 
   @doc """
   Lists all payment intents with pagination.
@@ -147,13 +117,7 @@ defmodule PaperTiger.Resources.PaymentIntent do
   - status - Filter by status
   """
   @spec list(Plug.Conn.t()) :: Plug.Conn.t()
-  def list(conn) do
-    pagination_opts = parse_pagination_params(conn.params)
-
-    result = PaymentIntents.list(pagination_opts)
-
-    json_response(conn, 200, result)
-  end
+  def list(conn), do: list_response(conn, PaymentIntents)
 
   @doc """
   Searches payment intents with Stripe-style search query syntax.
@@ -414,9 +378,6 @@ defmodule PaperTiger.Resources.PaymentIntent do
     end
   end
 
-  defp respond_to_search({:ok, result}, conn), do: json_response(conn, 200, result)
-  defp respond_to_search({:error, error}, conn), do: error_response(conn, error)
-
   defp validate_cancellation_reason(nil), do: {:ok, nil}
   defp validate_cancellation_reason(reason) when reason in @cancellation_reasons, do: {:ok, reason}
   defp validate_cancellation_reason(reason), do: {:error, :invalid_cancellation_reason, reason}
@@ -495,11 +456,6 @@ defmodule PaperTiger.Resources.PaymentIntent do
     do: "requires_confirmation"
 
   defp initial_status(_params), do: "requires_payment_method"
-
-  defp maybe_expand(payment_intent, params) do
-    expand_params = parse_expand_params(params)
-    PaperTiger.Hydrator.hydrate(payment_intent, expand_params)
-  end
 
   defp generate_client_secret do
     random_part =

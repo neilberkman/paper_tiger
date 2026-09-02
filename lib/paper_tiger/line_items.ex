@@ -166,7 +166,7 @@ defmodule PaperTiger.LineItems do
   end
 
   defp fetch_price(price_id) do
-    case Prices.get(price_id) do
+    case Prices.get_or_plan(price_id) do
       {:ok, price} -> price
       {:error, :not_found} -> minimal_price(price_id)
     end

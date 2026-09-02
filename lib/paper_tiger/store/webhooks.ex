@@ -23,7 +23,7 @@ defmodule PaperTiger.Store.Webhooks do
       {:ok, webhook} = PaperTiger.Store.Webhooks.insert(webhook)
 
       # Query helpers (direct ETS access)
-      webhooks = PaperTiger.Store.Webhooks.find_active()
+      webhooks = PaperTiger.Store.Webhooks.find_by(:status, "enabled")
   """
 
   use PaperTiger.Store,
@@ -31,14 +31,6 @@ defmodule PaperTiger.Store.Webhooks do
     resource: "webhook_endpoint",
     prefix: "we"
 
-  @doc """
-  Finds active webhook endpoints (status: "enabled").
-
-  **Direct ETS access** - does not go through GenServer.
-  """
-  @spec find_active() :: [map()]
-  def find_active do
-    :ets.match_object(@table, {:_, %{status: "enabled"}})
-    |> Enum.map(fn {_id, webhook} -> webhook end)
-  end
+  @deprecated "Use find_by/2"
+  def find_active, do: find_by(:status, "enabled")
 end

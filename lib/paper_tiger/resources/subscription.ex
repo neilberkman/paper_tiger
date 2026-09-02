@@ -47,7 +47,6 @@ defmodule PaperTiger.Resources.Subscription do
   alias PaperTiger.Store.InvoiceItems
   alias PaperTiger.Store.Invoices
   alias PaperTiger.Store.PaymentIntents
-  alias PaperTiger.Store.Plans
   alias PaperTiger.Store.Prices
   alias PaperTiger.Store.SubscriptionItems
   alias PaperTiger.Store.Subscriptions
@@ -97,10 +96,7 @@ defmodule PaperTiger.Resources.Subscription do
       |> then(&json_response(conn, 200, &1))
     else
       {:error, :invalid_params, field} ->
-        error_response(
-          conn,
-          PaperTiger.Error.invalid_request("Missing required parameter", field)
-        )
+        missing_param_response(conn, field)
 
       {:error, :customer_not_found, customer_id} ->
         error_response(conn, PaperTiger.Error.not_found("customer", customer_id))
@@ -151,7 +147,7 @@ defmodule PaperTiger.Resources.Subscription do
   @spec update(Plug.Conn.t(), String.t()) :: Plug.Conn.t()
   def update(conn, id) do
     with {:ok, existing} <- Subscriptions.get(id),
-         existing_items = SubscriptionItems.find_by_subscription(id),
+         existing_items = SubscriptionItems.find_by(:subscription, id),
          {:ok, item_operations} <-
            prepare_subscription_item_updates(id, existing_items, Map.get(conn.params, :items)),
          coerced_params = coerce_update_params(conn.params),
@@ -160,7 +156,7 @@ defmodule PaperTiger.Resources.Subscription do
          updated = maybe_activate_subscription_after_trial(updated),
          :ok <- apply_subscription_item_operations(id, item_operations),
          {:ok, updated} <- Subscriptions.update(updated) do
-      items_after_update = SubscriptionItems.find_by_subscription(id)
+      items_after_update = SubscriptionItems.find_by(:subscription, id)
       billable_items_changed = billable_items_changed?(existing_items, items_after_update)
       updated = maybe_create_proration_invoice(updated, conn.params, billable_items_changed, existing_items)
 
@@ -376,9 +372,6 @@ defmodule PaperTiger.Resources.Subscription do
     end
   end
 
-  defp respond_to_search({:ok, result}, conn), do: json_response(conn, 200, result)
-  defp respond_to_search({:error, error}, conn), do: error_response(conn, error)
-
   defp build_subscription(params) do
     now = PaperTiger.now()
     trial_end = calculate_trial_end(params, now)
@@ -441,51 +434,16 @@ defmodule PaperTiger.Resources.Subscription do
 
   defp create_subscription_items(_subscription_id, _items), do: :ok
 
-  # Fetches full price object from store
-  # Note: Prices are validated upfront in validate_prices_exist/1, so this should always succeed
-  # Stripe API accepts both price IDs and plan IDs, so we check both stores
+  # Stripe accepts both price IDs and plan IDs here; prices are validated
+  # upfront in validate_prices_exist/1, so this normally succeeds.
   defp fetch_price_object(price_id) when is_binary(price_id) do
-    case Prices.get(price_id) do
-      {:ok, price} ->
-        price
-
-      {:error, :not_found} ->
-        # Try as plan ID (convert plan to price format for compatibility)
-        case Plans.get(price_id) do
-          {:ok, plan} -> convert_plan_to_price_format(plan)
-          {:error, :not_found} -> nil
-        end
+    case Prices.get_or_plan(price_id) do
+      {:ok, price} -> price
+      {:error, :not_found} -> nil
     end
   end
 
   defp fetch_price_object(_), do: nil
-
-  # Convert plan object to price format for compatibility
-  defp convert_plan_to_price_format(plan) do
-    recurring_map = %{interval: plan.interval}
-
-    recurring_map =
-      if plan.interval_count do
-        Map.put(recurring_map, :interval_count, plan.interval_count)
-      else
-        recurring_map
-      end
-
-    %{
-      active: plan.active,
-      created: plan.created,
-      currency: plan.currency,
-      id: plan.id,
-      livemode: plan.livemode,
-      metadata: plan.metadata || %{},
-      nickname: plan.nickname,
-      object: "price",
-      product: plan.product,
-      recurring: recurring_map,
-      type: "recurring",
-      unit_amount: plan.amount
-    }
-  end
 
   # Validates that the customer exists in the store
   defp validate_customer_exists(customer_id) do
@@ -513,18 +471,9 @@ defmodule PaperTiger.Resources.Subscription do
 
   defp validate_prices_exist(_), do: :ok
 
-  # Helper to check if a price or plan exists (Stripe API accepts both IDs)
+  # Stripe accepts both price IDs and plan IDs
   defp validate_price_or_plan_exists(id) do
-    case Prices.get(id) do
-      {:ok, _price} ->
-        :ok
-
-      {:error, :not_found} ->
-        case Plans.get(id) do
-          {:ok, _plan} -> :ok
-          {:error, :not_found} -> {:error, :not_found}
-        end
-    end
+    with {:ok, _price} <- Prices.get_or_plan(id), do: :ok
   end
 
   defp diff_attributes(old, new) do
@@ -548,7 +497,7 @@ defmodule PaperTiger.Resources.Subscription do
 
   defp load_subscription_items(subscription) do
     items =
-      SubscriptionItems.find_by_subscription(subscription.id)
+      SubscriptionItems.find_by(:subscription, subscription.id)
       |> Enum.sort_by(& &1.created, :asc)
 
     %{
@@ -798,7 +747,7 @@ defmodule PaperTiger.Resources.Subscription do
   # charge to zero rather than inventing a negative payment.
   defp create_proration_invoice(subscription, params, pre_update_items) do
     proration_behavior = Map.get(params, :proration_behavior)
-    items = SubscriptionItems.find_by_subscription(subscription.id)
+    items = SubscriptionItems.find_by(:subscription, subscription.id)
     now = PaperTiger.now()
     invoice_id = generate_id("in")
     ratio = Proration.remaining_ratio(subscription, now)
@@ -1103,7 +1052,7 @@ defmodule PaperTiger.Resources.Subscription do
       price_id = get_item_field(item, :price)
       quantity = item |> get_item_field(:quantity, 1) |> to_integer()
 
-      case Prices.get(price_id) do
+      case Prices.get_or_plan(to_string(price_id)) do
         {:ok, price} -> acc + (price.unit_amount || 0) * quantity
         _ -> acc
       end
@@ -1123,7 +1072,7 @@ defmodule PaperTiger.Resources.Subscription do
   defp build_initial_invoice_line_items(subscription, invoice_id) do
     now = PaperTiger.now()
 
-    SubscriptionItems.find_by_subscription(subscription.id)
+    SubscriptionItems.find_by(:subscription, subscription.id)
     |> Enum.sort_by(& &1.created, :asc)
     |> Enum.map(fn item ->
       price = item[:price] || %{}
@@ -1159,7 +1108,7 @@ defmodule PaperTiger.Resources.Subscription do
   # The full object is returned only when expand: ["latest_invoice"] is passed
   defp load_latest_invoice(subscription) do
     latest_invoice_id =
-      Invoices.find_by_subscription(subscription.id)
+      Invoices.find_by(:subscription, subscription.id)
       |> Enum.sort_by(& &1.created, :desc)
       |> List.first()
       |> case do
@@ -1168,10 +1117,5 @@ defmodule PaperTiger.Resources.Subscription do
       end
 
     Map.put(subscription, :latest_invoice, latest_invoice_id)
-  end
-
-  defp maybe_expand(subscription, params) do
-    expand_params = parse_expand_params(params)
-    PaperTiger.Hydrator.hydrate(subscription, expand_params)
   end
 end

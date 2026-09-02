@@ -23,7 +23,7 @@ defmodule PaperTiger.Store.Events do
       {:ok, event} = PaperTiger.Store.Events.insert(event)
 
       # Query helpers (direct ETS access)
-      events = PaperTiger.Store.Events.find_by_type("payment_intent.succeeded")
+      events = PaperTiger.Store.Events.find_by(:type, "payment_intent.succeeded")
   """
 
   use PaperTiger.Store,
@@ -31,14 +31,6 @@ defmodule PaperTiger.Store.Events do
     resource: "event",
     prefix: "evt"
 
-  @doc """
-  Finds events by type.
-
-  **Direct ETS access** - does not go through GenServer.
-  """
-  @spec find_by_type(String.t()) :: [map()]
-  def find_by_type(type) when is_binary(type) do
-    :ets.match_object(@table, {:_, %{type: type}})
-    |> Enum.map(fn {_id, event} -> event end)
-  end
+  @deprecated "Use find_by/2"
+  def find_by_type(value), do: find_by(:type, value)
 end

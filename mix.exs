@@ -2,7 +2,7 @@ defmodule PaperTiger.MixProject do
   @moduledoc false
   use Mix.Project
 
-  @version "1.4.1"
+  @version "1.5.0"
   @url "https://github.com/neilberkman/paper_tiger"
   @maintainers ["Neil Berkman"]
 

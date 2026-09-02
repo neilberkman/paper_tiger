@@ -73,17 +73,7 @@ defmodule PaperTiger.Resources.SetupIntent do
   Retrieves a setup intent by ID.
   """
   @spec retrieve(Plug.Conn.t(), String.t()) :: Plug.Conn.t()
-  def retrieve(conn, id) do
-    case SetupIntents.get(id) do
-      {:ok, setup_intent} ->
-        setup_intent
-        |> maybe_expand(conn.params)
-        |> then(&json_response(conn, 200, &1))
-
-      {:error, :not_found} ->
-        error_response(conn, PaperTiger.Error.not_found("setup_intent", id))
-    end
-  end
+  def retrieve(conn, id), do: retrieve_response(conn, SetupIntents, "setup_intent", id)
 
   @doc """
   Updates a setup intent.
@@ -95,25 +85,8 @@ defmodule PaperTiger.Resources.SetupIntent do
   - metadata
   """
   @spec update(Plug.Conn.t(), String.t()) :: Plug.Conn.t()
-  def update(conn, id) do
-    with {:ok, existing} <- SetupIntents.get(id),
-         updated =
-           merge_updates(existing, conn.params, [
-             :id,
-             :object,
-             :created,
-             :status,
-             :usage
-           ]),
-         {:ok, updated} <- SetupIntents.update(updated) do
-      updated
-      |> maybe_expand(conn.params)
-      |> then(&json_response(conn, 200, &1))
-    else
-      {:error, :not_found} ->
-        error_response(conn, PaperTiger.Error.not_found("setup_intent", id))
-    end
-  end
+  def update(conn, id),
+    do: update_response(conn, SetupIntents, "setup_intent", id, [:id, :object, :created, :status, :usage])
 
   @doc """
   Lists all setup intents with pagination.
@@ -126,13 +99,7 @@ defmodule PaperTiger.Resources.SetupIntent do
   - customer - Filter by customer ID
   """
   @spec list(Plug.Conn.t()) :: Plug.Conn.t()
-  def list(conn) do
-    pagination_opts = parse_pagination_params(conn.params)
-
-    result = SetupIntents.list(pagination_opts)
-
-    json_response(conn, 200, result)
-  end
+  def list(conn), do: list_response(conn, SetupIntents)
 
   @doc """
   Confirms a setup intent.
@@ -692,11 +659,6 @@ defmodule PaperTiger.Resources.SetupIntent do
 
   defp initial_status(%{payment_method: payment_method}) when is_binary(payment_method), do: "requires_confirmation"
   defp initial_status(_params), do: "requires_payment_method"
-
-  defp maybe_expand(setup_intent, params) do
-    expand_params = parse_expand_params(params)
-    PaperTiger.Hydrator.hydrate(setup_intent, expand_params)
-  end
 
   defp generate_client_secret do
     random_part =

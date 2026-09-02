@@ -16,16 +16,14 @@ defmodule PaperTiger.Store do
           table: :paper_tiger_customers,
           resource: "customer"
 
-        # Optionally add resource-specific queries
-        def find_by_email(email) when is_binary(email) do
-          namespace = PaperTiger.Test.current_namespace()
-          :ets.match_object(@table, {{namespace, :_}, %{email: email}})
-          |> Enum.map(fn {_key, customer} -> customer end)
+        # Optionally add resource-specific queries on top of find_by/2
+        def find_active_by_email(email) when is_binary(email) do
+          Enum.filter(find_by(:email, email), & &1.active)
         end
       end
 
   This generates all standard store functions:
-  - `get/1`, `get_owned/3`, `list/1`, `count/0` (reads - direct ETS)
+  - `get/1`, `get_owned/3`, `list/1`, `count/0`, `find_by/2` (reads - direct ETS)
   - `insert/1`, `update/1`, `delete/1`, `mutate_owned/3`, `clear/0`
     (writes - via GenServer)
   - `clear_namespace/1` (for test cleanup)
@@ -151,6 +149,34 @@ defmodule PaperTiger.Store do
 
         :ets.match_object(unquote(table), {{namespace, :_}, :_})
         |> length()
+      end
+
+      @doc """
+      Finds all #{unquote(plural)} in the current namespace whose `field` equals `value`.
+
+      **Direct ETS access** - does not go through GenServer.
+      Returns an empty list when `value` is `nil`, since a nil reference never
+      identifies a parent resource.
+
+      ## Examples
+
+          find_by(:customer, "cus_123")
+          find_by(:status, "active")
+      """
+      @spec find_by(atom(), term()) :: [map()]
+      def find_by(field, value) when is_atom(field) do
+        if is_nil(value) do
+          []
+        else
+          # Rows are selected by namespace and compared with strict equality
+          # rather than placing `value` in the ETS match pattern, where a map
+          # would match partially and atoms like :_ would act as wildcards.
+          namespace = current_namespace()
+
+          :ets.match_object(unquote(table), {{namespace, :_}, :_})
+          |> Enum.map(fn {_key, item} -> item end)
+          |> Enum.filter(fn item -> Map.get(item, field) === value end)
+        end
       end
     end
   end

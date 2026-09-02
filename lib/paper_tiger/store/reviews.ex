@@ -23,7 +23,7 @@ defmodule PaperTiger.Store.Reviews do
       {:ok, review} = PaperTiger.Store.Reviews.insert(review)
 
       # Query helpers (direct ETS access)
-      reviews = PaperTiger.Store.Reviews.find_by_payment_intent("pi_123")
+      reviews = PaperTiger.Store.Reviews.find_by(:payment_intent, "pi_123")
   """
 
   use PaperTiger.Store,
@@ -31,14 +31,6 @@ defmodule PaperTiger.Store.Reviews do
     resource: "review",
     prefix: "prv"
 
-  @doc """
-  Finds reviews by payment intent ID.
-
-  **Direct ETS access** - does not go through GenServer.
-  """
-  @spec find_by_payment_intent(String.t()) :: [map()]
-  def find_by_payment_intent(payment_intent_id) when is_binary(payment_intent_id) do
-    :ets.match_object(@table, {:_, %{payment_intent: payment_intent_id}})
-    |> Enum.map(fn {_id, review} -> review end)
-  end
+  @deprecated "Use find_by/2"
+  def find_by_payment_intent(value), do: find_by(:payment_intent, value)
 end

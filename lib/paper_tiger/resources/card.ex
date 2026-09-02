@@ -64,10 +64,7 @@ defmodule PaperTiger.Resources.Card do
       |> then(&json_response(conn, 200, &1))
     else
       {:error, :invalid_params, field} ->
-        error_response(
-          conn,
-          PaperTiger.Error.invalid_request("Missing required parameter", field)
-        )
+        missing_param_response(conn, field)
     end
   end
 
@@ -75,17 +72,7 @@ defmodule PaperTiger.Resources.Card do
   Retrieves a card by ID.
   """
   @spec retrieve(Plug.Conn.t(), String.t()) :: Plug.Conn.t()
-  def retrieve(conn, id) do
-    case Cards.get(id) do
-      {:ok, card} ->
-        card
-        |> maybe_expand(conn.params)
-        |> then(&json_response(conn, 200, &1))
-
-      {:error, :not_found} ->
-        error_response(conn, PaperTiger.Error.not_found("card", id))
-    end
-  end
+  def retrieve(conn, id), do: retrieve_response(conn, Cards, "card", id)
 
   @doc """
   Updates a card.
@@ -103,18 +90,7 @@ defmodule PaperTiger.Resources.Card do
   - address_zip
   """
   @spec update(Plug.Conn.t(), String.t()) :: Plug.Conn.t()
-  def update(conn, id) do
-    with {:ok, existing} <- Cards.get(id),
-         updated = merge_updates(existing, conn.params),
-         {:ok, updated} <- Cards.update(updated) do
-      updated
-      |> maybe_expand(conn.params)
-      |> then(&json_response(conn, 200, &1))
-    else
-      {:error, :not_found} ->
-        error_response(conn, PaperTiger.Error.not_found("card", id))
-    end
-  end
+  def update(conn, id), do: update_response(conn, Cards, "card", id)
 
   @doc """
   Deletes a card (detaches from customer).
@@ -122,21 +98,7 @@ defmodule PaperTiger.Resources.Card do
   Returns a deletion confirmation object.
   """
   @spec delete(Plug.Conn.t(), String.t()) :: Plug.Conn.t()
-  def delete(conn, id) do
-    case Cards.get(id) do
-      {:ok, _card} ->
-        :ok = Cards.delete(id)
-
-        json_response(conn, 200, %{
-          deleted: true,
-          id: id,
-          object: "card"
-        })
-
-      {:error, :not_found} ->
-        error_response(conn, PaperTiger.Error.not_found("card", id))
-    end
-  end
+  def delete(conn, id), do: delete_response(conn, Cards, "card", id)
 
   @doc """
   Lists all cards for a customer with pagination.
@@ -155,7 +117,7 @@ defmodule PaperTiger.Resources.Card do
     if customer_id do
       pagination_opts = parse_pagination_params(conn.params)
 
-      cards = Cards.find_by_customer(customer_id)
+      cards = Cards.find_by(:customer, customer_id)
 
       paginated_result =
         cards
@@ -202,11 +164,6 @@ defmodule PaperTiger.Resources.Card do
       tokenization_method: Map.get(params, :tokenization_method),
       wallet: Map.get(params, :wallet)
     }
-  end
-
-  defp maybe_expand(card, params) do
-    expand_params = parse_expand_params(params)
-    PaperTiger.Hydrator.hydrate(card, expand_params)
   end
 
   defp generate_fingerprint do

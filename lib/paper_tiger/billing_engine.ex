@@ -201,7 +201,7 @@ defmodule PaperTiger.BillingEngine do
   end
 
   defp find_due_subscriptions(now) do
-    Subscriptions.find_active()
+    Subscriptions.find_by(:status, "active")
     |> Enum.filter(fn sub ->
       period_end = sub[:current_period_end] || sub["current_period_end"]
       period_end && period_end <= now
@@ -270,7 +270,7 @@ defmodule PaperTiger.BillingEngine do
   end
 
   defp get_price_amount(price_id) when is_binary(price_id) do
-    case Prices.get(price_id) do
+    case Prices.get_or_plan(price_id) do
       {:ok, price} ->
         {:ok, price[:unit_amount] || price["unit_amount"] || 0, price[:currency] || price["currency"] || "usd"}
 

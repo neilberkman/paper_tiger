@@ -12,18 +12,6 @@ defmodule PaperTiger.Store.SetupAttempts do
     plural: "setup_attempts",
     prefix: "setatt"
 
-  @doc """
-  Finds setup attempts associated with a SetupIntent ID.
-
-  **Direct ETS access** - does not go through GenServer.
-  """
-  @spec find_by_setup_intent(String.t() | nil) :: [map()]
-  def find_by_setup_intent(nil), do: []
-
-  def find_by_setup_intent(setup_intent_id) when is_binary(setup_intent_id) do
-    namespace = PaperTiger.Connect.storage_namespace()
-
-    :ets.match_object(@table, {{namespace, :_}, %{setup_intent: setup_intent_id}})
-    |> Enum.map(fn {_key, setup_attempt} -> setup_attempt end)
-  end
+  @deprecated "Use find_by/2"
+  def find_by_setup_intent(value), do: find_by(:setup_intent, value)
 end

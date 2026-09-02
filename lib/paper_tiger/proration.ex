@@ -118,7 +118,7 @@ defmodule PaperTiger.Proration do
   """
   @spec price_currency(String.t() | nil) :: String.t()
   def price_currency(price_id) do
-    case price_id && Prices.get(to_string(price_id)) do
+    case price_id && Prices.get_or_plan(to_string(price_id)) do
       {:ok, price} -> price.currency || "usd"
       _ -> "usd"
     end

@@ -95,10 +95,7 @@ defmodule PaperTiger.Resources.Invoice do
       |> then(&json_response(conn, 200, &1))
     else
       {:error, :invalid_params, field} ->
-        error_response(
-          conn,
-          PaperTiger.Error.invalid_request("Missing required parameter", field)
-        )
+        missing_param_response(conn, field)
     end
   end
 
@@ -127,7 +124,7 @@ defmodule PaperTiger.Resources.Invoice do
     case Invoices.get(id) do
       {:ok, _invoice} ->
         json_response(conn, 200, %{
-          data: InvoiceItems.find_by_invoice(id),
+          data: InvoiceItems.find_by(:invoice, id),
           has_more: false,
           object: "list",
           url: "/v1/invoices/#{id}/lines"
@@ -254,45 +251,42 @@ defmodule PaperTiger.Resources.Invoice do
   defp to_string_or_nil(val) when is_binary(val), do: val
   defp to_string_or_nil(val) when is_atom(val), do: Atom.to_string(val)
 
-  defp respond_to_search({:ok, result}, conn), do: json_response(conn, 200, result)
-  defp respond_to_search({:error, error}, conn), do: error_response(conn, error)
-
   defp get_filtered_invoices(nil, nil, nil) do
     Invoices.all()
   end
 
   # Additional fields
   defp get_filtered_invoices(customer_id, nil, nil) when is_binary(customer_id) do
-    Invoices.find_by_customer(customer_id)
+    Invoices.find_by(:customer, customer_id)
   end
 
   defp get_filtered_invoices(nil, status, nil) when is_binary(status) do
-    Invoices.find_by_status(status)
+    Invoices.find_by(:status, status)
   end
 
   defp get_filtered_invoices(nil, nil, subscription_id) when is_binary(subscription_id) do
-    Invoices.find_by_subscription(subscription_id)
+    Invoices.find_by(:subscription, subscription_id)
   end
 
   defp get_filtered_invoices(customer_id, status, nil) when is_binary(customer_id) and is_binary(status) do
-    Invoices.find_by_customer(customer_id)
+    Invoices.find_by(:customer, customer_id)
     |> Enum.filter(fn inv -> inv.status == status end)
   end
 
   defp get_filtered_invoices(customer_id, nil, subscription_id)
        when is_binary(customer_id) and is_binary(subscription_id) do
-    Invoices.find_by_customer(customer_id)
+    Invoices.find_by(:customer, customer_id)
     |> Enum.filter(fn inv -> inv.subscription == subscription_id end)
   end
 
   defp get_filtered_invoices(nil, status, subscription_id) when is_binary(status) and is_binary(subscription_id) do
-    Invoices.find_by_subscription(subscription_id)
+    Invoices.find_by(:subscription, subscription_id)
     |> Enum.filter(fn inv -> inv.status == status end)
   end
 
   defp get_filtered_invoices(customer_id, status, subscription_id)
        when is_binary(customer_id) and is_binary(status) and is_binary(subscription_id) do
-    Invoices.find_by_customer(customer_id)
+    Invoices.find_by(:customer, customer_id)
     |> Enum.filter(fn inv -> inv.status == status and inv.subscription == subscription_id end)
   end
 
@@ -348,7 +342,7 @@ defmodule PaperTiger.Resources.Invoice do
            {:ok, subscription} <- Subscriptions.get(subscription_id) do
         sd = param_value(conn.params, :subscription_details) || %{}
         proposed_items = param_value(sd, :items) || %{}
-        existing = SubscriptionItems.find_by_subscription(subscription_id)
+        existing = SubscriptionItems.find_by(:subscription, subscription_id)
         existing_resolved = Enum.map(existing, &resolve_item_for_preview/1)
         merged = merge_preview_items(subscription_id, proposed_items)
         invoice = build_preview_invoice(subscription, merged, existing_resolved)
@@ -675,7 +669,7 @@ defmodule PaperTiger.Resources.Invoice do
   end
 
   defp load_invoice_lines(invoice) do
-    lines = InvoiceItems.find_by_invoice(invoice.id)
+    lines = InvoiceItems.find_by(:invoice, invoice.id)
 
     %{
       invoice
@@ -889,11 +883,6 @@ defmodule PaperTiger.Resources.Invoice do
 
   defp maybe_emit_invoice_paid(_old_invoice, _new_invoice), do: :ok
 
-  defp maybe_expand(invoice, params) do
-    expand_params = parse_expand_params(params)
-    PaperTiger.Hydrator.hydrate(invoice, expand_params)
-  end
-
   # Build default status_transitions based on invoice status
   defp build_default_status_transitions("paid", now) do
     %{
@@ -1046,7 +1035,7 @@ defmodule PaperTiger.Resources.Invoice do
   defp load_items_for_preview(subscription_id, params) do
     case param_value(params, :subscription_items) do
       nil ->
-        SubscriptionItems.find_by_subscription(subscription_id)
+        SubscriptionItems.find_by(:subscription, subscription_id)
         |> Enum.map(&resolve_item_for_preview/1)
 
       proposed when is_map(proposed) ->
@@ -1057,7 +1046,7 @@ defmodule PaperTiger.Resources.Invoice do
         |> Enum.reject(&is_nil/1)
 
       _ ->
-        SubscriptionItems.find_by_subscription(subscription_id)
+        SubscriptionItems.find_by(:subscription, subscription_id)
         |> Enum.map(&resolve_item_for_preview/1)
     end
   end
@@ -1067,7 +1056,7 @@ defmodule PaperTiger.Resources.Invoice do
     price_id = if is_map(price_id), do: price_id[:id] || price_id["id"], else: price_id
     quantity = sub_item[:quantity] || sub_item["quantity"] || 1
 
-    case Prices.get(to_string(price_id)) do
+    case Prices.get_or_plan(to_string(price_id)) do
       {:ok, price} ->
         %{price_id: price.id, product: price.product, quantity: quantity, unit_amount: price.unit_amount}
 
@@ -1121,7 +1110,7 @@ defmodule PaperTiger.Resources.Invoice do
         price_id = sub_item[:price] || sub_item.price
         price_id = if is_map(price_id), do: price_id[:id] || price_id["id"], else: price_id
 
-        case Prices.get(to_string(price_id)) do
+        case Prices.get_or_plan(to_string(price_id)) do
           {:ok, price} -> {:ok, price.id, price.unit_amount, price.product}
           _ -> {:ok, to_string(price_id), 0, nil}
         end
@@ -1184,7 +1173,7 @@ defmodule PaperTiger.Resources.Invoice do
   end
 
   defp merge_preview_items(subscription_id, proposed_items) do
-    existing = SubscriptionItems.find_by_subscription(subscription_id)
+    existing = SubscriptionItems.find_by(:subscription, subscription_id)
     existing_by_id = map_existing_items_by_id(existing)
     proposed_list = normalize_proposed_preview_items(proposed_items)
     state = reduce_proposed_preview_items(proposed_list, existing_by_id)
@@ -1287,7 +1276,7 @@ defmodule PaperTiger.Resources.Invoice do
   end
 
   defp build_preview_item(price_id, quantity) do
-    case Prices.get(to_string(price_id)) do
+    case Prices.get_or_plan(to_string(price_id)) do
       {:ok, price} ->
         %{price_id: price.id, product: price.product, quantity: quantity, unit_amount: price.unit_amount}
 

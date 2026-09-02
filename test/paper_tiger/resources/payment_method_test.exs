@@ -22,52 +22,9 @@ defmodule PaperTiger.Resources.PaymentMethodTest do
      - GET /v1/payment_methods - List with pagination
   """
 
-  use ExUnit.Case, async: true
-
-  import PaperTiger.Test
-
-  alias PaperTiger.Router
+  use PaperTiger.RouterCase, async: true, api_key: "sk_test_payment_key"
 
   setup :checkout_paper_tiger
-
-  # Helper function to create a test connection with proper setup
-  defp conn(method, path, params, headers) do
-    conn = Plug.Test.conn(method, path, params)
-
-    headers_with_defaults =
-      headers ++
-        [
-          {"content-type", "application/json"},
-          {"authorization", "Bearer sk_test_payment_key"}
-        ] ++ sandbox_headers()
-
-    Enum.reduce(headers_with_defaults, conn, fn {key, value}, acc ->
-      Plug.Conn.put_req_header(acc, key, value)
-    end)
-  end
-
-  # Helper function to run a request through the router
-  defp request(method, path, params \\ nil, headers \\ []) do
-    conn = conn(method, path, params, headers)
-    Router.call(conn, [])
-  end
-
-  # Helper function to run request without authorization header
-  defp request_no_auth(method, path, params \\ nil) do
-    conn = Plug.Test.conn(method, path, params)
-
-    conn_with_headers =
-      Enum.reduce([{"content-type", "application/json"}] ++ sandbox_headers(), conn, fn {key, value}, acc ->
-        Plug.Conn.put_req_header(acc, key, value)
-      end)
-
-    Router.call(conn_with_headers, [])
-  end
-
-  # Helper function to parse JSON response
-  defp json_response(conn) do
-    Jason.decode!(conn.resp_body)
-  end
 
   # Helper function to create a test customer
   defp create_customer(email \\ "test@example.com") do

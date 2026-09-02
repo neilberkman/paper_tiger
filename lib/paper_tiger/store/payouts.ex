@@ -23,7 +23,7 @@ defmodule PaperTiger.Store.Payouts do
       {:ok, payout} = PaperTiger.Store.Payouts.insert(payout)
 
       # Query helpers (direct ETS access)
-      payouts = PaperTiger.Store.Payouts.find_by_status("paid")
+      payouts = PaperTiger.Store.Payouts.find_by(:status, "paid")
   """
 
   use PaperTiger.Store,
@@ -31,14 +31,6 @@ defmodule PaperTiger.Store.Payouts do
     resource: "payout",
     prefix: "po"
 
-  @doc """
-  Finds payouts by status.
-
-  **Direct ETS access** - does not go through GenServer.
-  """
-  @spec find_by_status(String.t()) :: [map()]
-  def find_by_status(status) when is_binary(status) do
-    :ets.match_object(@table, {:_, %{status: status}})
-    |> Enum.map(fn {_id, payout} -> payout end)
-  end
+  @deprecated "Use find_by/2"
+  def find_by_status(value), do: find_by(:status, value)
 end

@@ -76,14 +76,11 @@ defmodule PaperTiger.Resources.CheckoutSession do
       maybe_store_idempotency(conn, session)
 
       session
-      |> maybe_expand(conn.params)
+      |> expand_session(conn.params)
       |> then(&json_response(conn, 200, &1))
     else
       {:error, :invalid_params, field} ->
-        error_response(
-          conn,
-          PaperTiger.Error.invalid_request("Missing required parameter", field)
-        )
+        missing_param_response(conn, field)
     end
   end
 
@@ -95,7 +92,7 @@ defmodule PaperTiger.Resources.CheckoutSession do
     case CheckoutSessions.get(id) do
       {:ok, session} ->
         session
-        |> maybe_expand(conn.params)
+        |> expand_session(conn.params)
         |> then(&json_response(conn, 200, &1))
 
       {:error, :not_found} ->
@@ -116,7 +113,7 @@ defmodule PaperTiger.Resources.CheckoutSession do
          {:ok, updated} <- update_session(session, conn.params),
          {:ok, updated} <- CheckoutSessions.update(updated) do
       updated
-      |> maybe_expand(conn.params)
+      |> expand_session(conn.params)
       |> then(&json_response(conn, 200, &1))
     else
       {:error, :not_found} ->
@@ -186,7 +183,7 @@ defmodule PaperTiger.Resources.CheckoutSession do
     # Fetch full price object from store to ensure all fields are present
     result =
       if customer_id = Map.get(conn.params, :customer) do
-        CheckoutSessions.find_by_customer(customer_id)
+        CheckoutSessions.find_by(:customer, customer_id)
         |> PaperTiger.List.paginate(Map.put(pagination_opts, :url, "/v1/checkout/sessions"))
       else
         CheckoutSessions.list(pagination_opts)
@@ -218,7 +215,7 @@ defmodule PaperTiger.Resources.CheckoutSession do
         )
 
         expired_session
-        |> maybe_expand(conn.params)
+        |> expand_session(conn.params)
         |> then(&json_response(conn, 200, &1))
 
       {:ok, %{status: status}} ->
@@ -266,7 +263,7 @@ defmodule PaperTiger.Resources.CheckoutSession do
         )
 
         completed_session
-        |> maybe_expand(conn.params)
+        |> expand_session(conn.params)
         |> then(&json_response(conn, 200, &1))
 
       {:ok, %{status: "complete"}} ->
@@ -489,7 +486,7 @@ defmodule PaperTiger.Resources.CheckoutSession do
     |> Enum.with_index()
     |> Enum.each(fn {item, index} ->
       price_id = Map.get(item, :price) || Map.get(item, "price")
-      price_object = fetch_price_object(price_id)
+      price_object = Prices.get_or_placeholder(price_id)
       quantity = Map.get(item, :quantity) || Map.get(item, "quantity") || 1
 
       subscription_item = %{
@@ -509,28 +506,6 @@ defmodule PaperTiger.Resources.CheckoutSession do
   end
 
   defp create_subscription_items_from_line_items(_subscription_id, _), do: :ok
-
-  defp fetch_price_object(price_id) when is_binary(price_id) do
-    case Prices.get(price_id) do
-      {:ok, price} -> price
-      {:error, :not_found} -> build_minimal_price_object(price_id)
-    end
-  end
-
-  defp fetch_price_object(%{} = price), do: price
-
-  defp fetch_price_object(_), do: nil
-
-  defp build_minimal_price_object(price_id) do
-    %{
-      active: true,
-      currency: "usd",
-      id: price_id,
-      livemode: false,
-      object: "price",
-      type: "recurring"
-    }
-  end
 
   defp create_payment_intent_from_session(session, payment_method) do
     now = PaperTiger.now()
@@ -634,7 +609,7 @@ defmodule PaperTiger.Resources.CheckoutSession do
 
   defp maybe_pay_incomplete_subscription_invoice(customer_id, payment_method) do
     Logger.debug("Checking for incomplete subscriptions for customer: #{customer_id}")
-    subscriptions = Subscriptions.find_by_customer(customer_id)
+    subscriptions = Subscriptions.find_by(:customer, customer_id)
     Logger.debug("Found #{length(subscriptions)} subscriptions for customer #{customer_id}")
 
     incomplete_sub =
@@ -719,7 +694,7 @@ defmodule PaperTiger.Resources.CheckoutSession do
             _ -> nil
           end
 
-        {:ok, full_price} = Prices.get(price_id)
+        full_price = Prices.get_or_placeholder(price_id) || %{}
 
         amount = Map.get(full_price, :unit_amount, 0)
         quantity = Map.get(item, :quantity, 1)
@@ -947,7 +922,7 @@ defmodule PaperTiger.Resources.CheckoutSession do
   defp normalize_checkout_line_item_price(item) do
     case Map.get(item, :price) || Map.get(item, "price") do
       %{} = price -> price
-      price_id when is_binary(price_id) -> fetch_price_object(price_id)
+      price_id when is_binary(price_id) -> Prices.get_or_placeholder(price_id)
       _ -> build_price_from_price_data(item)
     end
   end
@@ -985,7 +960,7 @@ defmodule PaperTiger.Resources.CheckoutSession do
   defp price_type(false), do: "one_time"
   defp price_type(_recurring), do: "recurring"
 
-  defp line_item_quantity(item), do: item |> value(:quantity) |> to_integer_value(1)
+  defp line_item_quantity(item), do: item |> value(:quantity) |> to_integer(1)
 
   defp line_item_unit_amount(item, price \\ nil) do
     item
@@ -1001,7 +976,7 @@ defmodule PaperTiger.Resources.CheckoutSession do
       amount ->
         amount
     end
-    |> to_integer_value()
+    |> to_integer()
   end
 
   defp line_item_currency(item, price) do
@@ -1069,7 +1044,7 @@ defmodule PaperTiger.Resources.CheckoutSession do
     "http://localhost:#{port}/checkout/#{session_id}/complete"
   end
 
-  defp maybe_expand(session, params) do
+  defp expand_session(session, params) do
     expand_params = parse_expand_params(params)
 
     session =
@@ -1110,17 +1085,4 @@ defmodule PaperTiger.Resources.CheckoutSession do
   end
 
   defp value(_other, _key), do: nil
-
-  defp to_integer_value(value, default \\ 0)
-  defp to_integer_value(value, _default) when is_integer(value), do: value
-
-  defp to_integer_value(value, default) when is_binary(value) do
-    case Integer.parse(value) do
-      {integer, _} -> integer
-      :error -> default
-    end
-  end
-
-  defp to_integer_value(nil, default), do: default
-  defp to_integer_value(_value, default), do: default
 end

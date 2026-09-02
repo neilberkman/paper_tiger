@@ -23,8 +23,8 @@ defmodule PaperTiger.Store.Disputes do
       {:ok, dispute} = PaperTiger.Store.Disputes.insert(dispute)
 
       # Query helpers (direct ETS access)
-      disputes = PaperTiger.Store.Disputes.find_by_charge("ch_123")
-      disputes = PaperTiger.Store.Disputes.find_by_status("under_review")
+      disputes = PaperTiger.Store.Disputes.find_by(:charge, "ch_123")
+      disputes = PaperTiger.Store.Disputes.find_by(:status, "under_review")
   """
 
   use PaperTiger.Store,
@@ -32,25 +32,9 @@ defmodule PaperTiger.Store.Disputes do
     resource: "dispute",
     prefix: "dp"
 
-  @doc """
-  Finds disputes by charge ID.
+  @deprecated "Use find_by/2"
+  def find_by_charge(value), do: find_by(:charge, value)
 
-  **Direct ETS access** - does not go through GenServer.
-  """
-  @spec find_by_charge(String.t()) :: [map()]
-  def find_by_charge(charge_id) when is_binary(charge_id) do
-    :ets.match_object(@table, {:_, %{charge: charge_id}})
-    |> Enum.map(fn {_id, dispute} -> dispute end)
-  end
-
-  @doc """
-  Finds disputes by status.
-
-  **Direct ETS access** - does not go through GenServer.
-  """
-  @spec find_by_status(String.t()) :: [map()]
-  def find_by_status(status) when is_binary(status) do
-    :ets.match_object(@table, {:_, %{status: status}})
-    |> Enum.map(fn {_id, dispute} -> dispute end)
-  end
+  @deprecated "Use find_by/2"
+  def find_by_status(value), do: find_by(:status, value)
 end

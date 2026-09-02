@@ -23,7 +23,7 @@ defmodule PaperTiger.Store.BalanceTransactions do
       {:ok, txn} = PaperTiger.Store.BalanceTransactions.insert(txn)
 
       # Query helpers (direct ETS access)
-      txns = PaperTiger.Store.BalanceTransactions.find_by_source("ch_123")
+      txns = PaperTiger.Store.BalanceTransactions.find_by(:source, "ch_123")
   """
 
   use PaperTiger.Store,
@@ -31,16 +31,6 @@ defmodule PaperTiger.Store.BalanceTransactions do
     resource: "balance_transaction",
     prefix: "txn"
 
-  @doc """
-  Finds balance transactions by source ID.
-
-  **Direct ETS access** - does not go through GenServer.
-  """
-  @spec find_by_source(String.t()) :: [map()]
-  def find_by_source(source_id) when is_binary(source_id) do
-    namespace = PaperTiger.Connect.storage_namespace()
-
-    :ets.match_object(@table, {{namespace, :_}, %{source: source_id}})
-    |> Enum.map(fn {_id, balance_transaction} -> balance_transaction end)
-  end
+  @deprecated "Use find_by/2"
+  def find_by_source(value), do: find_by(:source, value)
 end

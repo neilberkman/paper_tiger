@@ -30,7 +30,7 @@ defmodule PaperTiger.Resources.CreditNote do
       |> then(&json_response(conn, 200, &1))
     else
       {:error, :invalid_params, field} ->
-        error_response(conn, PaperTiger.Error.invalid_request("Missing required parameter", field))
+        missing_param_response(conn, field)
 
       {:error, :missing_amount_source} ->
         error_response(conn, PaperTiger.Error.invalid_request("Must provide amount, lines, or shipping_cost"))
@@ -60,7 +60,7 @@ defmodule PaperTiger.Resources.CreditNote do
       |> then(&json_response(conn, 200, &1))
     else
       {:error, :invalid_params, field} ->
-        error_response(conn, PaperTiger.Error.invalid_request("Missing required parameter", field))
+        missing_param_response(conn, field)
 
       {:error, :missing_amount_source} ->
         error_response(conn, PaperTiger.Error.invalid_request("Must provide amount, lines, or shipping_cost"))
@@ -77,17 +77,7 @@ defmodule PaperTiger.Resources.CreditNote do
   Retrieves a credit note.
   """
   @spec retrieve(Plug.Conn.t(), String.t()) :: Plug.Conn.t()
-  def retrieve(conn, id) do
-    case CreditNotes.get(id) do
-      {:ok, credit_note} ->
-        credit_note
-        |> maybe_expand(conn.params)
-        |> then(&json_response(conn, 200, &1))
-
-      {:error, :not_found} ->
-        error_response(conn, PaperTiger.Error.not_found("credit_note", id))
-    end
-  end
+  def retrieve(conn, id), do: retrieve_response(conn, CreditNotes, "credit_note", id)
 
   @doc """
   Updates a credit note's memo/metadata.
@@ -379,11 +369,5 @@ defmodule PaperTiger.Resources.CreditNote do
       object: "list",
       url: url
     }
-  end
-
-  defp maybe_expand(credit_note, params) do
-    params
-    |> parse_expand_params()
-    |> then(&PaperTiger.Hydrator.hydrate(credit_note, &1))
   end
 end

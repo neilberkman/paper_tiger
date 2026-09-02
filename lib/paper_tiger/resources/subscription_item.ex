@@ -54,10 +54,7 @@ defmodule PaperTiger.Resources.SubscriptionItem do
       |> then(&json_response(conn, 200, &1))
     else
       {:error, :invalid_params, field} ->
-        error_response(
-          conn,
-          PaperTiger.Error.invalid_request("Missing required parameter", field)
-        )
+        missing_param_response(conn, field)
     end
   end
 
@@ -65,17 +62,7 @@ defmodule PaperTiger.Resources.SubscriptionItem do
   Retrieves a subscription item by ID.
   """
   @spec retrieve(Plug.Conn.t(), String.t()) :: Plug.Conn.t()
-  def retrieve(conn, id) do
-    case SubscriptionItems.get(id) do
-      {:ok, item} ->
-        item
-        |> maybe_expand(conn.params)
-        |> then(&json_response(conn, 200, &1))
-
-      {:error, :not_found} ->
-        error_response(conn, PaperTiger.Error.not_found("subscription_item", id))
-    end
-  end
+  def retrieve(conn, id), do: retrieve_response(conn, SubscriptionItems, "subscription_item", id)
 
   @doc """
   Updates a subscription item.
@@ -89,22 +76,20 @@ defmodule PaperTiger.Resources.SubscriptionItem do
   @spec update(Plug.Conn.t(), String.t()) :: Plug.Conn.t()
   def update(conn, id) do
     with {:ok, existing} <- SubscriptionItems.get(id),
-         updated =
-           merge_updates(existing, conn.params, [
-             :id,
-             :object,
-             :created,
-             :subscription
-           ]),
-         {:ok, updated} <- SubscriptionItems.update(updated) do
-      updated
-      |> maybe_expand(conn.params)
-      |> then(&json_response(conn, 200, &1))
+         updates = merge_updates(existing, resolve_price(conn.params), [:id, :object, :created, :subscription]),
+         {:ok, updated} <- SubscriptionItems.update(updates) do
+      json_response(conn, 200, maybe_expand(updated, conn.params))
     else
-      {:error, :not_found} ->
-        error_response(conn, PaperTiger.Error.not_found("subscription_item", id))
+      {:error, :not_found} -> error_response(conn, PaperTiger.Error.not_found("subscription_item", id))
     end
   end
+
+  # A price ID (or legacy plan ID) in the update becomes the full price object
+  defp resolve_price(%{price: price_id} = params) when is_binary(price_id) do
+    %{params | price: Prices.get_or_placeholder(price_id)}
+  end
+
+  defp resolve_price(params), do: params
 
   @doc """
   Deletes a subscription item.
@@ -114,21 +99,7 @@ defmodule PaperTiger.Resources.SubscriptionItem do
   Returns a deletion confirmation object.
   """
   @spec delete(Plug.Conn.t(), String.t()) :: Plug.Conn.t()
-  def delete(conn, id) do
-    case SubscriptionItems.get(id) do
-      {:ok, _item} ->
-        :ok = SubscriptionItems.delete(id)
-
-        json_response(conn, 200, %{
-          deleted: true,
-          id: id,
-          object: "subscription_item"
-        })
-
-      {:error, :not_found} ->
-        error_response(conn, PaperTiger.Error.not_found("subscription_item", id))
-    end
-  end
+  def delete(conn, id), do: delete_response(conn, SubscriptionItems, "subscription_item", id)
 
   @doc """
   Lists all subscription items with pagination.
@@ -163,7 +134,7 @@ defmodule PaperTiger.Resources.SubscriptionItem do
   # Additional fields
   defp build_subscription_item(params) do
     price_id = Map.get(params, :price)
-    price_object = fetch_price_object(price_id)
+    price_object = Prices.get_or_placeholder(price_id)
 
     %{
       billing_thresholds: Map.get(params, :billing_thresholds),
@@ -177,33 +148,5 @@ defmodule PaperTiger.Resources.SubscriptionItem do
       subscription: Map.get(params, :subscription),
       tax_rates: Map.get(params, :tax_rates, [])
     }
-  end
-
-  # Fetches full price object from store, or builds minimal object if not found
-  defp fetch_price_object(price_id) when is_binary(price_id) do
-    case Prices.get(price_id) do
-      {:ok, price} -> price
-      {:error, :not_found} -> build_minimal_price_object(price_id)
-    end
-  end
-
-  defp fetch_price_object(_), do: nil
-
-  # Build minimal price object when price doesn't exist in store
-  # This ensures API compatibility even with ad-hoc price IDs
-  defp build_minimal_price_object(price_id) do
-    %{
-      active: true,
-      currency: "usd",
-      id: price_id,
-      livemode: false,
-      object: "price",
-      type: "recurring"
-    }
-  end
-
-  defp maybe_expand(item, params) do
-    expand_params = parse_expand_params(params)
-    PaperTiger.Hydrator.hydrate(item, expand_params)
   end
 end

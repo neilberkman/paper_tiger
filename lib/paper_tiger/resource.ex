@@ -127,6 +127,89 @@ defmodule PaperTiger.Resource do
   end
 
   @doc """
+  Hydrates a resource according to the `expand[]` params of a request.
+
+  Resources with no expandable fields pass through unchanged.
+  """
+  @spec maybe_expand(map(), map()) :: map()
+  def maybe_expand(resource, params) do
+    PaperTiger.Hydrator.hydrate(resource, parse_expand_params(params))
+  end
+
+  @doc """
+  Handles a standard retrieve request.
+
+  Looks up `id` in `store`, hydrates the result according to the request's
+  `expand[]` params, and sends it. Unknown IDs get Stripe's `resource_missing`
+  404 for `object`.
+  """
+  @spec retrieve_response(Plug.Conn.t(), module(), String.t(), String.t()) :: Plug.Conn.t()
+  def retrieve_response(conn, store, object, id) do
+    case store.get(id) do
+      {:ok, resource} -> json_response(conn, 200, maybe_expand(resource, conn.params))
+      {:error, :not_found} -> error_response(conn, PaperTiger.Error.not_found(object, id))
+    end
+  end
+
+  @doc """
+  Sends the error for a required parameter that `validate_params/2` found missing.
+  """
+  @spec missing_param_response(Plug.Conn.t(), atom() | String.t()) :: Plug.Conn.t()
+  def missing_param_response(conn, field) do
+    error_response(conn, PaperTiger.Error.invalid_request("Missing required parameter", field))
+  end
+
+  @doc """
+  Handles a standard list request with no filters beyond pagination.
+  """
+  @spec list_response(Plug.Conn.t(), module()) :: Plug.Conn.t()
+  def list_response(conn, store) do
+    json_response(conn, 200, store.list(parse_pagination_params(conn.params)))
+  end
+
+  @doc """
+  Handles a standard update request.
+
+  Merges the request params into the stored resource with `merge_updates/3`,
+  skipping `immutable_fields`, writes it back to `store`, and sends the
+  hydrated result. Unknown IDs get the `resource_missing` 404 for `object`.
+  """
+  @spec update_response(Plug.Conn.t(), module(), String.t(), String.t(), [atom()]) :: Plug.Conn.t()
+  def update_response(conn, store, object, id, immutable_fields \\ [:id, :object, :created]) do
+    with {:ok, existing} <- store.get(id),
+         {:ok, updated} <- store.update(merge_updates(existing, conn.params, immutable_fields)) do
+      json_response(conn, 200, maybe_expand(updated, conn.params))
+    else
+      {:error, :not_found} -> error_response(conn, PaperTiger.Error.not_found(object, id))
+    end
+  end
+
+  @doc """
+  Handles a standard delete request.
+
+  Deletes `id` from `store` and sends Stripe's deletion confirmation for
+  `object`. Unknown IDs get the `resource_missing` 404.
+  """
+  @spec delete_response(Plug.Conn.t(), module(), String.t(), String.t()) :: Plug.Conn.t()
+  def delete_response(conn, store, object, id) do
+    case store.get(id) do
+      {:ok, _resource} ->
+        :ok = store.delete(id)
+        json_response(conn, 200, %{deleted: true, id: id, object: object})
+
+      {:error, :not_found} ->
+        error_response(conn, PaperTiger.Error.not_found(object, id))
+    end
+  end
+
+  @doc """
+  Sends the result of `PaperTiger.Search.run/3` as an HTTP response.
+  """
+  @spec respond_to_search({:ok, map()} | {:error, PaperTiger.Error.t()}, Plug.Conn.t()) :: Plug.Conn.t()
+  def respond_to_search({:ok, result}, conn), do: json_response(conn, 200, result)
+  def respond_to_search({:error, error}, conn), do: error_response(conn, error)
+
+  @doc """
   Stores a response for idempotency if an idempotency key is present.
   """
   @spec maybe_store_idempotency(Plug.Conn.t(), map()) :: :ok
@@ -227,17 +310,50 @@ defmodule PaperTiger.Resource do
       to_integer(123) => 123
       to_integer("123") => 123
       to_integer(nil) => 0
+      to_integer("abc", 1) => 1
   """
-  def to_integer(value) when is_integer(value), do: value
+  def to_integer(value, default \\ 0)
 
-  def to_integer(value) when is_binary(value) do
+  def to_integer(value, _default) when is_integer(value), do: value
+
+  def to_integer(value, default) when is_binary(value) do
     case Integer.parse(value) do
       {num, _} -> num
-      :error -> 0
+      :error -> default
     end
   end
 
-  def to_integer(_), do: 0
+  def to_integer(_, default), do: default
+
+  @doc """
+  Gets a param by atom key, also accepting the string form of the key.
+
+  Nested form-encoded maps may arrive with string keys, so this checks both.
+  A missing key or a `nil` value yields `default`; `false` is a real value and
+  is returned as-is.
+
+  ## Examples
+
+      param(%{code: "X"}, :code)          # => "X"
+      param(%{"code" => "X"}, :code)      # => "X"
+      param(%{}, :code, "fallback")       # => "fallback"
+      param(%{trial: false}, :trial, true) # => false
+      param(nil, :code)                   # => nil
+  """
+  @spec param(term(), atom(), term()) :: term()
+  def param(map, key, default \\ nil)
+
+  def param(map, key, default) when is_map(map) and is_atom(key) do
+    case Map.get(map, key) do
+      nil -> present_or(Map.get(map, Atom.to_string(key)), default)
+      value -> value
+    end
+  end
+
+  def param(_map, _key, default), do: default
+
+  defp present_or(nil, default), do: default
+  defp present_or(value, _default), do: value
 
   @doc """
   Gets an integer param from a map, with default value.

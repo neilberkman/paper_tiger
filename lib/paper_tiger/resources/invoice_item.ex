@@ -59,10 +59,7 @@ defmodule PaperTiger.Resources.InvoiceItem do
       |> then(&json_response(conn, 200, &1))
     else
       {:error, :invalid_params, field} ->
-        error_response(
-          conn,
-          PaperTiger.Error.invalid_request("Missing required parameter", field)
-        )
+        missing_param_response(conn, field)
     end
   end
 
@@ -70,17 +67,7 @@ defmodule PaperTiger.Resources.InvoiceItem do
   Retrieves an invoice item by ID.
   """
   @spec retrieve(Plug.Conn.t(), String.t()) :: Plug.Conn.t()
-  def retrieve(conn, id) do
-    case InvoiceItems.get(id) do
-      {:ok, invoice_item} ->
-        invoice_item
-        |> maybe_expand(conn.params)
-        |> then(&json_response(conn, 200, &1))
-
-      {:error, :not_found} ->
-        error_response(conn, PaperTiger.Error.not_found("invoiceitem", id))
-    end
-  end
+  def retrieve(conn, id), do: retrieve_response(conn, InvoiceItems, "invoiceitem", id)
 
   @doc """
   Updates an invoice item.
@@ -93,18 +80,7 @@ defmodule PaperTiger.Resources.InvoiceItem do
   - quantity
   """
   @spec update(Plug.Conn.t(), String.t()) :: Plug.Conn.t()
-  def update(conn, id) do
-    with {:ok, existing} <- InvoiceItems.get(id),
-         updated = merge_updates(existing, conn.params),
-         {:ok, updated} <- InvoiceItems.update(updated) do
-      updated
-      |> maybe_expand(conn.params)
-      |> then(&json_response(conn, 200, &1))
-    else
-      {:error, :not_found} ->
-        error_response(conn, PaperTiger.Error.not_found("invoiceitem", id))
-    end
-  end
+  def update(conn, id), do: update_response(conn, InvoiceItems, "invoiceitem", id)
 
   @doc """
   Deletes an invoice item.
@@ -114,21 +90,7 @@ defmodule PaperTiger.Resources.InvoiceItem do
   Returns a deletion confirmation object.
   """
   @spec delete(Plug.Conn.t(), String.t()) :: Plug.Conn.t()
-  def delete(conn, id) do
-    case InvoiceItems.get(id) do
-      {:ok, _invoice_item} ->
-        :ok = InvoiceItems.delete(id)
-
-        json_response(conn, 200, %{
-          deleted: true,
-          id: id,
-          object: "invoiceitem"
-        })
-
-      {:error, :not_found} ->
-        error_response(conn, PaperTiger.Error.not_found("invoiceitem", id))
-    end
-  end
+  def delete(conn, id), do: delete_response(conn, InvoiceItems, "invoiceitem", id)
 
   @doc """
   Lists all invoice items with pagination.
@@ -142,13 +104,7 @@ defmodule PaperTiger.Resources.InvoiceItem do
   - invoice - Filter by invoice
   """
   @spec list(Plug.Conn.t()) :: Plug.Conn.t()
-  def list(conn) do
-    pagination_opts = parse_pagination_params(conn.params)
-
-    result = InvoiceItems.list(pagination_opts)
-
-    json_response(conn, 200, result)
-  end
+  def list(conn), do: list_response(conn, InvoiceItems)
 
   ## Private Functions
 
@@ -196,10 +152,5 @@ defmodule PaperTiger.Resources.InvoiceItem do
       type: "invoiceitem",
       unit_amount_excluding_tax: amount
     }
-  end
-
-  defp maybe_expand(invoice_item, params) do
-    expand_params = parse_expand_params(params)
-    PaperTiger.Hydrator.hydrate(invoice_item, expand_params)
   end
 end

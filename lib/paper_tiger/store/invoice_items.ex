@@ -23,7 +23,7 @@ defmodule PaperTiger.Store.InvoiceItems do
       {:ok, invoice_item} = PaperTiger.Store.InvoiceItems.insert(invoice_item)
 
       # Query helpers (direct ETS access)
-      invoice_items = PaperTiger.Store.InvoiceItems.find_by_invoice("in_123")
+      invoice_items = PaperTiger.Store.InvoiceItems.find_by(:invoice, "in_123")
   """
 
   use PaperTiger.Store,
@@ -31,25 +31,9 @@ defmodule PaperTiger.Store.InvoiceItems do
     resource: "invoice_item",
     prefix: "ii"
 
-  @doc """
-  Finds invoice items by invoice ID.
+  @deprecated "Use find_by/2"
+  def find_by_invoice(value), do: find_by(:invoice, value)
 
-  **Direct ETS access** - does not go through GenServer.
-  """
-  @spec find_by_invoice(String.t()) :: [map()]
-  def find_by_invoice(invoice_id) when is_binary(invoice_id) do
-    :ets.match_object(@table, {:_, %{invoice: invoice_id}})
-    |> Enum.map(fn {_id, invoice_item} -> invoice_item end)
-  end
-
-  @doc """
-  Finds invoice items by customer ID.
-
-  **Direct ETS access** - does not go through GenServer.
-  """
-  @spec find_by_customer(String.t()) :: [map()]
-  def find_by_customer(customer_id) when is_binary(customer_id) do
-    :ets.match_object(@table, {:_, %{customer: customer_id}})
-    |> Enum.map(fn {_id, invoice_item} -> invoice_item end)
-  end
+  @deprecated "Use find_by/2"
+  def find_by_customer(value), do: find_by(:customer, value)
 end

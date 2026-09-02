@@ -23,7 +23,7 @@ defmodule PaperTiger.Store.Topups do
       {:ok, topup} = PaperTiger.Store.Topups.insert(topup)
 
       # Query helpers (direct ETS access)
-      topups = PaperTiger.Store.Topups.find_by_status("succeeded")
+      topups = PaperTiger.Store.Topups.find_by(:status, "succeeded")
   """
 
   use PaperTiger.Store,
@@ -31,14 +31,6 @@ defmodule PaperTiger.Store.Topups do
     resource: "topup",
     prefix: "tu"
 
-  @doc """
-  Finds top-ups by status.
-
-  **Direct ETS access** - does not go through GenServer.
-  """
-  @spec find_by_status(String.t()) :: [map()]
-  def find_by_status(status) when is_binary(status) do
-    :ets.match_object(@table, {:_, %{status: status}})
-    |> Enum.map(fn {_id, topup} -> topup end)
-  end
+  @deprecated "Use find_by/2"
+  def find_by_status(value), do: find_by(:status, value)
 end

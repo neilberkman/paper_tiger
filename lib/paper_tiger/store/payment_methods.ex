@@ -23,7 +23,7 @@ defmodule PaperTiger.Store.PaymentMethods do
       {:ok, payment_method} = PaperTiger.Store.PaymentMethods.insert(payment_method)
 
       # Query helpers (direct ETS access)
-      payment_methods = PaperTiger.Store.PaymentMethods.find_by_customer("cus_123")
+      payment_methods = PaperTiger.Store.PaymentMethods.find_by(:customer, "cus_123")
   """
 
   use PaperTiger.Store,
@@ -66,19 +66,6 @@ defmodule PaperTiger.Store.PaymentMethods do
     end
   end
 
-  @doc """
-  Finds payment methods by customer ID.
-
-  **Direct ETS access** - does not go through GenServer.
-  Returns empty list if customer_id is nil (Stripe requires customer param).
-  """
-  @spec find_by_customer(String.t() | nil) :: [map()]
-  def find_by_customer(nil), do: []
-
-  def find_by_customer(customer_id) when is_binary(customer_id) do
-    namespace = PaperTiger.Connect.storage_namespace()
-
-    :ets.match_object(@table, {{namespace, :_}, %{customer: customer_id}})
-    |> Enum.map(fn {_key, payment_method} -> payment_method end)
-  end
+  @deprecated "Use find_by/2"
+  def find_by_customer(value), do: find_by(:customer, value)
 end

@@ -66,10 +66,7 @@ defmodule PaperTiger.Resources.Coupon do
       |> then(&json_response(conn, 200, &1))
     else
       {:error, :invalid_params, field} ->
-        error_response(
-          conn,
-          PaperTiger.Error.invalid_request("Missing required parameter", field)
-        )
+        missing_param_response(conn, field)
 
       {:error, :invalid_discount} ->
         error_response(
@@ -95,17 +92,7 @@ defmodule PaperTiger.Resources.Coupon do
   Retrieves a coupon by ID.
   """
   @spec retrieve(Plug.Conn.t(), String.t()) :: Plug.Conn.t()
-  def retrieve(conn, id) do
-    case Coupons.get(id) do
-      {:ok, coupon} ->
-        coupon
-        |> maybe_expand(conn.params)
-        |> then(&json_response(conn, 200, &1))
-
-      {:error, :not_found} ->
-        error_response(conn, PaperTiger.Error.not_found("coupon", id))
-    end
-  end
+  def retrieve(conn, id), do: retrieve_response(conn, Coupons, "coupon", id)
 
   @doc """
   Updates a coupon.
@@ -118,28 +105,18 @@ defmodule PaperTiger.Resources.Coupon do
   """
   @spec update(Plug.Conn.t(), String.t()) :: Plug.Conn.t()
   def update(conn, id) do
-    with {:ok, existing} <- Coupons.get(id),
-         updated =
-           merge_updates(existing, conn.params, [
-             :id,
-             :object,
-             :created,
-             :percent_off,
-             :amount_off,
-             :currency,
-             :duration,
-             :duration_in_months,
-             :max_redemptions,
-             :redeem_by
-           ]),
-         {:ok, updated} <- Coupons.update(updated) do
-      updated
-      |> maybe_expand(conn.params)
-      |> then(&json_response(conn, 200, &1))
-    else
-      {:error, :not_found} ->
-        error_response(conn, PaperTiger.Error.not_found("coupon", id))
-    end
+    update_response(conn, Coupons, "coupon", id, [
+      :id,
+      :object,
+      :created,
+      :percent_off,
+      :amount_off,
+      :currency,
+      :duration,
+      :duration_in_months,
+      :max_redemptions,
+      :redeem_by
+    ])
   end
 
   @doc """
@@ -148,21 +125,7 @@ defmodule PaperTiger.Resources.Coupon do
   Returns a deletion confirmation object.
   """
   @spec delete(Plug.Conn.t(), String.t()) :: Plug.Conn.t()
-  def delete(conn, id) do
-    case Coupons.get(id) do
-      {:ok, _coupon} ->
-        :ok = Coupons.delete(id)
-
-        json_response(conn, 200, %{
-          deleted: true,
-          id: id,
-          object: "coupon"
-        })
-
-      {:error, :not_found} ->
-        error_response(conn, PaperTiger.Error.not_found("coupon", id))
-    end
-  end
+  def delete(conn, id), do: delete_response(conn, Coupons, "coupon", id)
 
   @doc """
   Lists all coupons with pagination.
@@ -174,13 +137,7 @@ defmodule PaperTiger.Resources.Coupon do
   - ending_before - Reverse cursor
   """
   @spec list(Plug.Conn.t()) :: Plug.Conn.t()
-  def list(conn) do
-    pagination_opts = parse_pagination_params(conn.params)
-
-    result = Coupons.list(pagination_opts)
-
-    json_response(conn, 200, result)
-  end
+  def list(conn), do: list_response(conn, Coupons)
 
   ## Private Functions
 
@@ -240,10 +197,5 @@ defmodule PaperTiger.Resources.Coupon do
     else
       {:ok, params}
     end
-  end
-
-  defp maybe_expand(coupon, params) do
-    expand_params = parse_expand_params(params)
-    PaperTiger.Hydrator.hydrate(coupon, expand_params)
   end
 end

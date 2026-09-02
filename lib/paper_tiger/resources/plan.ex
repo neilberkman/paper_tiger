@@ -64,10 +64,7 @@ defmodule PaperTiger.Resources.Plan do
       |> then(&json_response(conn, 200, &1))
     else
       {:error, :invalid_params, field} ->
-        error_response(
-          conn,
-          PaperTiger.Error.invalid_request("Missing required parameter", field)
-        )
+        missing_param_response(conn, field)
     end
   end
 
@@ -75,17 +72,7 @@ defmodule PaperTiger.Resources.Plan do
   Retrieves a plan by ID.
   """
   @spec retrieve(Plug.Conn.t(), String.t()) :: Plug.Conn.t()
-  def retrieve(conn, id) do
-    case Plans.get(id) do
-      {:ok, plan} ->
-        plan
-        |> maybe_expand(conn.params)
-        |> then(&json_response(conn, 200, &1))
-
-      {:error, :not_found} ->
-        error_response(conn, PaperTiger.Error.not_found("plan", id))
-    end
-  end
+  def retrieve(conn, id), do: retrieve_response(conn, Plans, "plan", id)
 
   @doc """
   Updates a plan.
@@ -100,26 +87,16 @@ defmodule PaperTiger.Resources.Plan do
   """
   @spec update(Plug.Conn.t(), String.t()) :: Plug.Conn.t()
   def update(conn, id) do
-    with {:ok, existing} <- Plans.get(id),
-         updated =
-           merge_updates(existing, conn.params, [
-             :id,
-             :object,
-             :created,
-             :currency,
-             :amount,
-             :interval,
-             :interval_count,
-             :product
-           ]),
-         {:ok, updated} <- Plans.update(updated) do
-      updated
-      |> maybe_expand(conn.params)
-      |> then(&json_response(conn, 200, &1))
-    else
-      {:error, :not_found} ->
-        error_response(conn, PaperTiger.Error.not_found("plan", id))
-    end
+    update_response(conn, Plans, "plan", id, [
+      :id,
+      :object,
+      :created,
+      :currency,
+      :amount,
+      :interval,
+      :interval_count,
+      :product
+    ])
   end
 
   @doc """
@@ -128,21 +105,7 @@ defmodule PaperTiger.Resources.Plan do
   Returns a deletion confirmation object.
   """
   @spec delete(Plug.Conn.t(), String.t()) :: Plug.Conn.t()
-  def delete(conn, id) do
-    case Plans.get(id) do
-      {:ok, _plan} ->
-        :ok = Plans.delete(id)
-
-        json_response(conn, 200, %{
-          deleted: true,
-          id: id,
-          object: "plan"
-        })
-
-      {:error, :not_found} ->
-        error_response(conn, PaperTiger.Error.not_found("plan", id))
-    end
-  end
+  def delete(conn, id), do: delete_response(conn, Plans, "plan", id)
 
   @doc """
   Lists all plans with pagination.
@@ -155,13 +118,7 @@ defmodule PaperTiger.Resources.Plan do
   - active - Filter by active status
   """
   @spec list(Plug.Conn.t()) :: Plug.Conn.t()
-  def list(conn) do
-    pagination_opts = parse_pagination_params(conn.params)
-
-    result = Plans.list(pagination_opts)
-
-    json_response(conn, 200, result)
-  end
+  def list(conn), do: list_response(conn, Plans)
 
   ## Private Functions
 
@@ -188,10 +145,5 @@ defmodule PaperTiger.Resources.Plan do
       trial_period_days: get_integer(params, :trial_period_days),
       usage_type: Map.get(params, :usage_type, "licensed")
     }
-  end
-
-  defp maybe_expand(plan, params) do
-    expand_params = parse_expand_params(params)
-    PaperTiger.Hydrator.hydrate(plan, expand_params)
   end
 end
