@@ -71,14 +71,15 @@ defmodule PaperTiger.Resources.PlanIdCompatTest do
 
     conn = request(:get, "/v1/invoices/#{subscription["latest_invoice"]}")
     assert conn.status == 200
-    # The initial invoice's currency is hardcoded to usd today, independent of plan IDs
-    assert json_response(conn)["amount_due"] == 5000
+    invoice = json_response(conn)
+    assert invoice["amount_due"] == 5000
+    assert invoice["currency"] == "eur"
 
     preview =
       request(:get, "/v1/invoices/upcoming", %{"customer" => customer["id"], "subscription" => subscription["id"]})
 
     assert preview.status == 200
-    # Preview currency is hardcoded to usd on this path today, independent of plan IDs
+    assert json_response(preview)["currency"] == "eur"
     [line] = json_response(preview)["lines"]["data"]
     assert line["price"]["id"] == plan["id"]
     assert line["amount"] == 5000

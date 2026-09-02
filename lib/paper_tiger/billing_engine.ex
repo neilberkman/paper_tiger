@@ -43,6 +43,7 @@ defmodule PaperTiger.BillingEngine do
 
   alias PaperTiger.AutomaticTax
   alias PaperTiger.ChaosCoordinator
+  alias PaperTiger.Connect
   alias PaperTiger.Store.Charges
   alias PaperTiger.Store.Customers
   alias PaperTiger.Store.InvoiceItems
@@ -66,14 +67,23 @@ defmodule PaperTiger.BillingEngine do
   end
 
   @doc """
-  Processes all subscriptions that are due for billing.
+  Processes the subscriptions that are due for billing.
 
-  This is called automatically on each poll interval, but can also be
-  called manually (useful in manual clock mode after advancing time).
+  With `:current` (the default) only the caller's storage namespace is
+  processed: its sandbox and, when set, its connected account. That is the
+  right scope after advancing a manual clock in a test. With `:all` every
+  namespace that holds subscriptions is processed, which is what the
+  automatic poll does.
   """
-  @spec process_billing() :: {:ok, map()}
-  def process_billing do
-    GenServer.call(__MODULE__, :process_billing, 30_000)
+  @spec process_billing(:current | :all) :: {:ok, map()}
+  def process_billing(scope \\ :current)
+
+  def process_billing(:current) do
+    GenServer.call(__MODULE__, {:process_billing, [Connect.storage_namespace()]}, 30_000)
+  end
+
+  def process_billing(:all) do
+    GenServer.call(__MODULE__, {:process_billing, :all}, 30_000)
   end
 
   @doc """
@@ -157,14 +167,14 @@ defmodule PaperTiger.BillingEngine do
   end
 
   @impl true
-  def handle_call(:process_billing, _from, state) do
-    {stats, new_state} = do_process_billing(state)
+  def handle_call({:process_billing, namespaces}, _from, state) do
+    {stats, new_state} = do_process_billing(state, namespaces)
     {:reply, {:ok, stats}, new_state}
   end
 
   @impl true
   def handle_info(:poll, state) do
-    {_stats, new_state} = do_process_billing(state)
+    {_stats, new_state} = do_process_billing(state, :all)
     schedule_poll()
     {:noreply, new_state}
   end
@@ -175,19 +185,18 @@ defmodule PaperTiger.BillingEngine do
     Process.send_after(self(), :poll, @poll_interval_ms)
   end
 
-  defp do_process_billing(state) do
+  # The engine runs in its own process, so every store call below would see
+  # the global namespace. Each namespace is processed inside
+  # Connect.with_storage_namespace/2 so sandboxes and connected accounts are
+  # billed against their own data.
+  defp do_process_billing(state, :all), do: do_process_billing(state, Subscriptions.namespaces())
+
+  defp do_process_billing(state, namespaces) when is_list(namespaces) do
     now = PaperTiger.now()
-    due_subscriptions = find_due_subscriptions(now)
 
     stats =
-      Enum.reduce(due_subscriptions, %{failed: 0, processed: 0, succeeded: 0}, fn sub, acc ->
-        case process_subscription(sub, state) do
-          :ok ->
-            %{acc | processed: acc.processed + 1, succeeded: acc.succeeded + 1}
-
-          {:error, _reason} ->
-            %{acc | failed: acc.failed + 1, processed: acc.processed + 1}
-        end
+      Enum.reduce(namespaces, %{failed: 0, processed: 0, succeeded: 0}, fn namespace, acc ->
+        Connect.with_storage_namespace(namespace, fn -> process_due_subscriptions(now, acc, state) end)
       end)
 
     if stats.processed > 0 do
@@ -198,6 +207,17 @@ defmodule PaperTiger.BillingEngine do
     end
 
     {stats, state}
+  end
+
+  defp process_due_subscriptions(now, stats, state) do
+    now
+    |> find_due_subscriptions()
+    |> Enum.reduce(stats, fn sub, acc ->
+      case process_subscription(sub, state) do
+        :ok -> %{acc | processed: acc.processed + 1, succeeded: acc.succeeded + 1}
+        {:error, _reason} -> %{acc | failed: acc.failed + 1, processed: acc.processed + 1}
+      end
+    end)
   end
 
   defp find_due_subscriptions(now) do

@@ -5,6 +5,19 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Fixed
+
+- The billing engine now bills subscriptions in every sandbox and connected
+  account. It runs in its own process, so its store lookups previously saw
+  only the global namespace and connected-account subscriptions were never
+  billed automatically. `PaperTiger.BillingEngine.process_billing/1` takes
+  `:current` (the caller's namespace, the default) or `:all`.
+- The initial invoice and payment intent created for a `default_incomplete`
+  subscription, and upcoming-invoice previews, now carry the price's
+  currency instead of a hardcoded `usd`.
+
 ## [1.5.0] - 2026-09-01
 
 ### Fixed

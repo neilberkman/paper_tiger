@@ -3,6 +3,7 @@ defmodule PaperTiger.BillingEngineTest do
 
   alias PaperTiger.BillingEngine
   alias PaperTiger.ChaosCoordinator
+  alias PaperTiger.Connect
 
   alias PaperTiger.Store.{
     Charges,
@@ -818,6 +819,97 @@ defmodule PaperTiger.BillingEngineTest do
       %{data: charges} = Charges.list(%{limit: sample_size})
       assert length(charges) == sample_size
       assert Enum.all?(charges, &(&1.failure_code == "card_declined"))
+    end
+  end
+
+  describe "namespace scoping" do
+    setup do
+      # A due subscription owned by a connected account, with its own
+      # customer and price inside that account's namespace.
+      Connect.with_account("acct_scoped", fn ->
+        now = PaperTiger.now()
+        past = now - 86_400
+
+        {:ok, _} =
+          Prices.insert(%{
+            active: true,
+            created: now,
+            currency: "usd",
+            id: "price_acct",
+            object: "price",
+            product: "prod_test",
+            recurring: %{interval: "month", interval_count: 1},
+            unit_amount: 3000
+          })
+
+        {:ok, _} = Customers.insert(%{created: now, email: "acct@example.com", id: "cus_acct", object: "customer"})
+
+        {:ok, _} =
+          Subscriptions.insert(%{
+            created: past - 2_592_000,
+            current_period_end: past,
+            current_period_start: past - 2_592_000,
+            customer: "cus_acct",
+            id: "sub_acct_due",
+            items: %{data: [%{price: "price_acct"}]},
+            object: "subscription",
+            plan: %{interval: "month", interval_count: 1},
+            status: "active"
+          })
+      end)
+
+      start_supervised!({BillingEngine, []})
+      BillingEngine.set_mode(:happy_path)
+      :ok
+    end
+
+    test "process_billing/0 only bills the caller's namespace" do
+      {:ok, stats} = BillingEngine.process_billing()
+      assert stats.processed == 0
+      assert %{data: []} = Invoices.list(%{})
+
+      {:ok, stats} = Connect.with_account("acct_scoped", fn -> BillingEngine.process_billing() end)
+      assert stats.processed == 1
+      assert stats.succeeded == 1
+
+      assert %{data: []} = Invoices.list(%{})
+
+      Connect.with_account("acct_scoped", fn ->
+        assert %{data: [invoice]} = Invoices.list(%{})
+        assert invoice.customer == "cus_acct"
+        assert invoice.amount_due == 3000
+        assert invoice.status == "paid"
+      end)
+    end
+
+    test "process_billing(:all) bills every namespace that holds subscriptions", %{customer: customer} do
+      now = PaperTiger.now()
+      past = now - 86_400
+
+      {:ok, _} =
+        Subscriptions.insert(%{
+          created: past - 2_592_000,
+          current_period_end: past,
+          current_period_start: past - 2_592_000,
+          customer: customer.id,
+          id: "sub_platform_due",
+          items: %{data: [%{price: "price_test"}]},
+          object: "subscription",
+          plan: %{interval: "month", interval_count: 1},
+          status: "active"
+        })
+
+      {:ok, stats} = BillingEngine.process_billing(:all)
+      assert stats.processed == 2
+      assert stats.succeeded == 2
+
+      assert %{data: [platform_invoice]} = Invoices.list(%{})
+      assert platform_invoice.customer == customer.id
+
+      Connect.with_account("acct_scoped", fn ->
+        assert %{data: [account_invoice]} = Invoices.list(%{})
+        assert account_invoice.customer == "cus_acct"
+      end)
     end
   end
 end

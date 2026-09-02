@@ -103,7 +103,6 @@ defmodule PaperTiger.WebhookDelivery do
 
   @max_retries 5
   @base_backoff_ms 1000
-  @namespace_key :paper_tiger_namespace
 
   ## Client API
   ## Server Callbacks
@@ -537,23 +536,5 @@ defmodule PaperTiger.WebhookDelivery do
     {:noreply, state}
   end
 
-  defp with_namespace(namespace, fun) do
-    unset = make_ref()
-    previous = Process.get(@namespace_key, unset)
-    Process.put(@namespace_key, namespace)
-
-    try do
-      fun.()
-    after
-      restore_namespace(previous, unset)
-    end
-  end
-
-  defp restore_namespace(previous, unset) when previous == unset do
-    Process.delete(@namespace_key)
-  end
-
-  defp restore_namespace(previous, _unset) do
-    Process.put(@namespace_key, previous)
-  end
+  defp with_namespace(namespace, fun), do: PaperTiger.Test.with_namespace(namespace, fun)
 end

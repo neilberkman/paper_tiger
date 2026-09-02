@@ -80,6 +80,20 @@ defmodule PaperTiger.Connect do
   end
 
   @doc """
+  Runs `fun` inside a full storage namespace, as returned by
+  `storage_namespace/0`: a base sandbox namespace, optionally paired with a
+  connected account. Both are restored afterwards.
+  """
+  @spec with_storage_namespace(storage_namespace(), (-> result)) :: result when result: term()
+  def with_storage_namespace({base_namespace, account_id}, fun) when is_function(fun, 0) do
+    PaperTiger.Test.with_namespace(base_namespace, fn -> with_account(account_id, fun) end)
+  end
+
+  def with_storage_namespace(base_namespace, fun) when is_function(fun, 0) do
+    PaperTiger.Test.with_namespace(base_namespace, fn -> without_account(fun) end)
+  end
+
+  @doc """
   Runs `fun` in platform scope even if the request is account-scoped.
   """
   @spec without_account((-> result)) :: result when result: term()

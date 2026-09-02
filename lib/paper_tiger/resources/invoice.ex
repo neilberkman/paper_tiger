@@ -1130,7 +1130,7 @@ defmodule PaperTiger.Resources.Invoice do
 
         %{
           amount: amount,
-          currency: "usd",
+          currency: Proration.price_currency(item.price_id),
           description: "#{item.quantity} x (#{item.price_id})",
           id: generate_id("il"),
           object: "line_item",
@@ -1151,7 +1151,7 @@ defmodule PaperTiger.Resources.Invoice do
       amount_paid: 0,
       amount_remaining: total,
       created: now,
-      currency: "usd",
+      currency: Proration.invoice_currency(lines),
       customer: subscription[:customer],
       discount: discount,
       id: invoice_id,
