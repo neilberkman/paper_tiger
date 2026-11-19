@@ -18,6 +18,24 @@ defmodule PaperTiger.Resources.PaymentIntentLifecycleTest do
 
   defp json_response(conn), do: Jason.decode!(conn.resp_body)
 
+  describe "POST /v1/payment_intents - Endive payment method params" do
+    test "stores allowed_payment_method_types and excluded_payment_method_types" do
+      conn =
+        request(:post, "/v1/payment_intents", %{
+          "allowed_payment_method_types" => ["card", "link"],
+          "amount" => 2400,
+          "currency" => "usd",
+          "excluded_payment_method_types" => ["klarna"]
+        })
+
+      assert conn.status == 200
+      pi = json_response(conn)
+      assert pi["allowed_payment_method_types"] == ["card", "link"]
+      assert pi["excluded_payment_method_types"] == ["klarna"]
+      assert pi["payment_method_types"] == ["card", "link"]
+    end
+  end
+
   describe "POST /v1/payment_intents/:id/cancel" do
     test "cancels a pre-confirmation payment intent with a cancellation reason" do
       create_conn =

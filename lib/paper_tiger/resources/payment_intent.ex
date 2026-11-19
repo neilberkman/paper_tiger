@@ -410,7 +410,11 @@ defmodule PaperTiger.Resources.PaymentIntent do
   end
 
   defp build_payment_intent(params) do
+    allowed_payment_method_types = Map.get(params, :allowed_payment_method_types)
+    payment_method_types = Map.get(params, :payment_method_types) || allowed_payment_method_types || ["card"]
+
     %{
+      allowed_payment_method_types: allowed_payment_method_types,
       amount: get_integer(params, :amount),
       amount_capturable: 0,
       amount_details: Map.get(params, :amount_details),
@@ -427,6 +431,7 @@ defmodule PaperTiger.Resources.PaymentIntent do
       currency: Map.get(params, :currency),
       customer: Map.get(params, :customer),
       description: Map.get(params, :description),
+      excluded_payment_method_types: Map.get(params, :excluded_payment_method_types),
       id: generate_id("pi"),
       invoice: nil,
       last_payment_error: nil,
@@ -439,6 +444,9 @@ defmodule PaperTiger.Resources.PaymentIntent do
       off_session: Map.get(params, :off_session),
       on_behalf_of: Map.get(params, :on_behalf_of),
       payment_method: Map.get(params, :payment_method),
+      payment_method_configuration_details: nil,
+      payment_method_options: Map.get(params, :payment_method_options),
+      payment_method_types: payment_method_types,
       processing: nil,
       receipt_email: Map.get(params, :receipt_email),
       return_url: Map.get(params, :return_url),

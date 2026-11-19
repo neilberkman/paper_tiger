@@ -2,7 +2,7 @@ defmodule PaperTiger.MixProject do
   @moduledoc false
   use Mix.Project
 
-  @version "1.5.1"
+  @version "1.6.0"
   @url "https://github.com/neilberkman/paper_tiger"
   @maintainers ["Neil Berkman"]
 
@@ -79,11 +79,11 @@ defmodule PaperTiger.MixProject do
   defp deps do
     [
       # HTTP server
-      {:bandit, "~> 1.6"},
-      {:plug, "~> 1.16"},
+      {:bandit, "~> 1.15"},
+      {:plug, "~> 1.20"},
 
       # HTTP client for webhooks
-      {:req, "~> 0.5"},
+      {:req, "~> 0.7"},
 
       # JSON
       {:jason, "~> 1.4"},
@@ -93,10 +93,10 @@ defmodule PaperTiger.MixProject do
       # Floor is 1.24: the least-vulnerable 1.x release (SSRF fixed in 1.21.0,
       # pool leak in 1.24.0). Four advisories affecting all of 1.x were only
       # ever fixed in 4.0.1 — prefer hackney 4.x when your dep tree allows it.
-      {:hackney, "~> 1.24 or ~> 4.0", optional: true},
+      {:hackney, "~> 1.24 or ~> 4.12", optional: true},
 
       # Testing/dev
-      {:mox, "~> 1.2", only: :test},
+      {:mox, "~> 1.3", only: :test},
       {:stripity_stripe, "~> 3.3", only: :test}
     ] ++
       python_sdk_contract_deps() ++
@@ -104,16 +104,16 @@ defmodule PaperTiger.MixProject do
         # Quality tooling
         {:credo, "~> 1.7", only: [:dev, :test], runtime: false},
         {:dialyxir, "~> 1.4", only: [:dev, :test], runtime: false},
-        {:ex_doc, "~> 0.35", only: :dev, runtime: false},
-        {:quokka, "~> 2.7", only: [:dev, :test], runtime: false},
-        {:mix_test_watch, "~> 1.2", only: :dev, runtime: false},
+        {:ex_doc, "~> 0.40", only: :dev, runtime: false},
+        {:quokka, "~> 2.13", only: [:dev, :test], runtime: false},
+        {:mix_test_watch, "~> 1.4", only: :dev, runtime: false},
         {:excoveralls, "~> 0.18", only: :test}
       ]
   end
 
   defp python_sdk_contract_deps do
     if System.get_env("VALIDATE_PYTHON_SDK") == "true" do
-      [{:erlang_python, "~> 3.0", only: :test, runtime: false}]
+      [{:erlang_python, "~> 5.0", only: :test, runtime: false}]
     else
       []
     end
@@ -148,9 +148,9 @@ defmodule PaperTiger.MixProject do
       main: "readme",
       source_ref: "v#{@version}",
       source_url: @url,
-      # PaperTiger.Port is internal (@moduledoc false) but mentioned in the
-      # changelog; don't autolink references to it.
-      skip_code_autolink_to: &String.match?(&1, ~r/^PaperTiger\.Port(\..*)?$/),
+      # PaperTiger.Port and PaperTiger.Search are internal (@moduledoc false)
+      # but mentioned in docs/changelog; don't autolink references to them.
+      skip_code_autolink_to: &String.match?(&1, ~r/^PaperTiger\.(Port|Search)(\..*)?$/),
       extras: [
         "README.md",
         "CHANGELOG.md",

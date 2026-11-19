@@ -51,17 +51,24 @@ defmodule PaperTiger.Resources.CheckoutSession do
 
   require Logger
 
+  @embedded_ui_modes ~w(embedded_page elements form embedded custom)
+
   @doc """
   Creates a new checkout session.
 
   ## Required Parameters
 
-  - success_url - URL to redirect to after successful payment
-  - cancel_url - URL to redirect to if customer cancels payment
   - mode - One of "payment", "setup", or "subscription"
+  - success_url - Required for hosted checkout sessions (`ui_mode: "hosted_page"` or `"hosted"`)
 
   ## Optional Parameters
 
+  - cancel_url - URL to redirect to if customer cancels payment (hosted modes)
+  - return_url - URL to redirect to after completion/cancel (embedded_page, elements, form modes)
+  - ui_mode - One of "hosted_page" (default), "embedded_page", "elements", "form" (legacy "hosted"/"embedded"/"custom" also accepted)
+  - allowed_payment_method_types - Payment method types allowed (Endive+)
+  - excluded_payment_method_types - Payment method types excluded (Endive+)
+  - payment_method_types - Payment method types (pre-Endive)
   - customer - Customer ID
   - line_items - Array of line items
   - metadata - Key-value metadata
@@ -70,7 +77,7 @@ defmodule PaperTiger.Resources.CheckoutSession do
   """
   @spec create(Plug.Conn.t()) :: Plug.Conn.t()
   def create(conn) do
-    with {:ok, _params} <- validate_params(conn.params, [:success_url, :cancel_url, :mode]),
+    with {:ok, _params} <- validate_create_params(conn.params),
          session = build_session(conn.params),
          {:ok, session} <- CheckoutSessions.insert(session) do
       maybe_store_idempotency(conn, session)
@@ -512,6 +519,7 @@ defmodule PaperTiger.Resources.CheckoutSession do
     amount = session[:amount_total] || calculate_amount_from_line_items(session.line_items)
 
     payment_intent = %{
+      allowed_payment_method_types: Map.get(session, :allowed_payment_method_types),
       amount: amount,
       amount_capturable: 0,
       amount_details: nil,
@@ -527,6 +535,7 @@ defmodule PaperTiger.Resources.CheckoutSession do
       currency: session.currency || "usd",
       customer: session.customer,
       description: nil,
+      excluded_payment_method_types: Map.get(session, :excluded_payment_method_types),
       id: generate_id("pi"),
       invoice: nil,
       last_payment_error: nil,
@@ -539,6 +548,7 @@ defmodule PaperTiger.Resources.CheckoutSession do
       off_session: nil,
       on_behalf_of: nil,
       payment_method: payment_method.id,
+      payment_method_types: session.payment_method_types || ["card"],
       processing: nil,
       receipt_email: nil,
       review: nil,
@@ -572,11 +582,13 @@ defmodule PaperTiger.Resources.CheckoutSession do
     now = PaperTiger.now()
 
     setup_intent = %{
+      allowed_payment_method_types: Map.get(session, :allowed_payment_method_types),
       application: nil,
       client_secret: generate_client_secret(),
       created: now,
       customer: session.customer,
       description: nil,
+      excluded_payment_method_types: Map.get(session, :excluded_payment_method_types),
       id: generate_id("seti"),
       last_setup_error: nil,
       livemode: false,
@@ -724,21 +736,41 @@ defmodule PaperTiger.Resources.CheckoutSession do
 
   defp build_invoice_lines_from_subscription_items(_, _now), do: {0, []}
 
+  defp validate_create_params(params) do
+    ui_mode = Map.get(params, :ui_mode, "hosted_page")
+
+    required =
+      if ui_mode in @embedded_ui_modes do
+        [:mode]
+      else
+        [:mode, :success_url]
+      end
+
+    validate_params(params, required)
+  end
+
   defp build_session(params) do
     session_id = generate_id("cs")
+    ui_mode = Map.get(params, :ui_mode, "hosted_page")
+    embedded? = ui_mode in @embedded_ui_modes
+    allowed_payment_method_types = Map.get(params, :allowed_payment_method_types)
+    payment_method_types = Map.get(params, :payment_method_types) || allowed_payment_method_types || ["card"]
 
     %{
+      allowed_payment_method_types: allowed_payment_method_types,
       amount_subtotal: nil,
       amount_total: nil,
       automatic_tax: AutomaticTax.automatic_tax(params, :checkout_session),
       billing_address_collection: Map.get(params, :billing_address_collection),
       cancel_url: Map.get(params, :cancel_url),
+      client_secret: if(embedded?, do: "#{session_id}_#{generate_client_secret()}"),
       completed_at: nil,
       consent_collection: Map.get(params, :consent_collection),
       created: PaperTiger.now(),
       currency: Map.get(params, :currency) || derive_currency_from_line_items(Map.get(params, :line_items, [])),
       customer: Map.get(params, :customer),
       customer_creation: Map.get(params, :customer_creation),
+      excluded_payment_method_types: Map.get(params, :excluded_payment_method_types),
       expires_at: PaperTiger.now() + 86_400,
       id: session_id,
       line_items: normalize_checkout_line_items(Map.get(params, :line_items, []), session_id),
@@ -749,10 +781,11 @@ defmodule PaperTiger.Resources.CheckoutSession do
       object: "checkout.session",
       payment_intent: Map.get(params, :payment_intent),
       payment_method_collection: Map.get(params, :payment_method_collection),
-      payment_method_types: Map.get(params, :payment_method_types, ["card"]),
+      payment_method_types: payment_method_types,
       payment_status: Map.get(params, :payment_status, "unpaid"),
       phone_number_collection: Map.get(params, :phone_number_collection),
       recovered_from: Map.get(params, :recovered_from),
+      return_url: Map.get(params, :return_url),
       setup_intent: Map.get(params, :setup_intent),
       shipping_address_collection: Map.get(params, :shipping_address_collection),
       status: Map.get(params, :status, "open"),
@@ -760,8 +793,8 @@ defmodule PaperTiger.Resources.CheckoutSession do
       subscription: Map.get(params, :subscription),
       success_url: Map.get(params, :success_url),
       total_details: Map.get(params, :total_details),
-      ui_mode: Map.get(params, :ui_mode, "hosted"),
-      url: generate_checkout_url(session_id)
+      ui_mode: ui_mode,
+      url: if(!embedded?, do: generate_checkout_url(session_id))
     }
     |> apply_checkout_totals()
   end

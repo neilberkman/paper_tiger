@@ -5,6 +5,7 @@ on:
     branches: [main]
   pull_request:
     branches: [main]
+  workflow_call:
   workflow_dispatch:
     inputs:
       run_contract_validation:
@@ -19,8 +20,17 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        otp: ['27.3.4.14']
-        elixir: ['1.18.4', '1.19.5', '1.20.2']
+        include:
+          - otp: '27.3.4.19'
+            elixir: '1.18.6'
+          - otp: '28.5.0.8'
+            elixir: '1.19.7'
+          - otp: '27.3.4.19'
+            elixir: '1.20.5'
+          - otp: '28.5.0.8'
+            elixir: '1.20.5'
+          - otp: '29.1.2'
+            elixir: '1.20.5'
 
     steps:
       - name: Checkout code
@@ -38,8 +48,8 @@ jobs:
           path: |
             deps
             _build
-          key: ${{ runner.os }}-mix-${{ hashFiles('**/mix.lock') }}
-          restore-keys: ${{ runner.os }}-mix-
+          key: ${{ runner.os }}-mix-${{ matrix.otp }}-${{ matrix.elixir }}-${{ hashFiles('**/mix.lock') }}
+          restore-keys: ${{ runner.os }}-mix-${{ matrix.otp }}-${{ matrix.elixir }}-
 
       - name: Install dependencies
         run: mix deps.get
@@ -59,8 +69,8 @@ jobs:
         uses: actions/cache@v4
         with:
           path: priv/plts
-          key: ${{ runner.os }}-plt-${{ hashFiles('**/mix.lock') }}
-          restore-keys: ${{ runner.os }}-plt-
+          key: ${{ runner.os }}-plt-${{ matrix.otp }}-${{ matrix.elixir }}-${{ hashFiles('**/mix.lock') }}
+          restore-keys: ${{ runner.os }}-plt-${{ matrix.otp }}-${{ matrix.elixir }}-
 
       - name: Run Dialyzer
         run: mix dialyzer
@@ -79,8 +89,8 @@ jobs:
       - name: Setup Elixir
         uses: erlef/setup-beam@v1
         with:
-          otp-version: '27.3.4.14'
-          elixir-version: '1.20.2'
+          otp-version: '29.1.2'
+          elixir-version: '1.20.5'
 
       # The main suite can never exercise the hackney ~> 1.24 branch because
       # the test-only stripity_stripe dep forces hackney 4.x resolution. This
@@ -116,8 +126,11 @@ jobs:
     if: ${{ github.event_name == 'workflow_dispatch' && inputs.run_contract_validation }}
     strategy:
       matrix:
-        otp: ['27.3.4.14']
-        elixir: ['1.18.4', '1.20.2']
+        include:
+          - otp: '27.3.4.19'
+            elixir: '1.18.6'
+          - otp: '29.1.2'
+            elixir: '1.20.5'
 
     steps:
       - name: Checkout code
@@ -135,8 +148,8 @@ jobs:
           path: |
             deps
             _build
-          key: ${{ runner.os }}-mix-${{ hashFiles('**/mix.lock') }}
-          restore-keys: ${{ runner.os }}-mix-
+          key: ${{ runner.os }}-mix-${{ matrix.otp }}-${{ matrix.elixir }}-${{ hashFiles('**/mix.lock') }}
+          restore-keys: ${{ runner.os }}-mix-${{ matrix.otp }}-${{ matrix.elixir }}-
 
       - name: Install dependencies
         run: mix deps.get

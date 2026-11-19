@@ -18,6 +18,22 @@ defmodule PaperTiger.Resources.SetupIntentLifecycleTest do
 
   defp json_response(conn), do: Jason.decode!(conn.resp_body)
 
+  describe "POST /v1/setup_intents - Endive payment method params" do
+    test "stores allowed_payment_method_types and derives payment_method_types" do
+      conn =
+        request(:post, "/v1/setup_intents", %{
+          "allowed_payment_method_types" => ["card", "us_bank_account"],
+          "excluded_payment_method_types" => ["sepa_debit"]
+        })
+
+      assert conn.status == 200
+      si = json_response(conn)
+      assert si["allowed_payment_method_types"] == ["card", "us_bank_account"]
+      assert si["excluded_payment_method_types"] == ["sepa_debit"]
+      assert si["payment_method_types"] == ["card", "us_bank_account"]
+    end
+  end
+
   describe "POST /v1/setup_intents/:id/confirm" do
     test "succeeds a card setup intent, attaches the payment method, and records an attempt" do
       customer_id = create_customer_id()

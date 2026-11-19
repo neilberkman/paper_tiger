@@ -55,8 +55,9 @@ if config_env() == :test do
     config :stripity_stripe,
       api_key: System.get_env("STRIPE_API_KEY"),
       # stripity_stripe sends the HTTP/1-only Connection header. hackney 4 can
-      # negotiate HTTP/2 by default, which Stripe rejects as a protocol error.
-      hackney_opts: [protocols: [:http1]]
+      # negotiate HTTP/2 by default, which Stripe rejects as a protocol error,
+      # and pooled keep-alive sockets can be closed server-side between requests.
+      hackney_opts: [protocols: [:http1], pool: false]
   else
     config :stripity_stripe, PaperTiger.stripity_stripe_config()
   end

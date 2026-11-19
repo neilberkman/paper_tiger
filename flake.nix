@@ -13,12 +13,12 @@
       in
       {
         devShells.default = pkgs.mkShell {
-          buildInputs = with pkgs; [
-            elixir_1_19
-            erlang_28
+          buildInputs = with pkgs.beam29Packages; [
+            elixir_1_20
+            erlang
             rebar3
           ] ++ pkgs.lib.optionals pkgs.stdenv.hostPlatform.isLinux [
-            inotify-tools
+            pkgs.inotify-tools
           ];
 
           shellHook = ''

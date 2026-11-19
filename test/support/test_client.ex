@@ -34,7 +34,8 @@ defmodule PaperTiger.TestClient do
   alias PaperTiger.Router
 
   @forced_mode_key {__MODULE__, :forced_mode}
-  @subscription_schedule_api_version "2025-11-17.clover"
+  @default_stripe_api_version "2026-11-18.endive"
+  @subscription_schedule_api_version "2026-11-18.endive"
 
   @doc """
   Returns the current test mode.
@@ -1689,7 +1690,10 @@ defmodule PaperTiger.TestClient do
   ## Private - Real Stripe API
 
   defp stripe_opts do
-    [api_key: System.get_env("STRIPE_API_KEY")]
+    [
+      api_key: System.get_env("STRIPE_API_KEY"),
+      api_version: @default_stripe_api_version
+    ]
   end
 
   defp stripe_request(method, path, params \\ %{}, opts \\ []) do
@@ -1700,7 +1704,7 @@ defmodule PaperTiger.TestClient do
         {"authorization", "Bearer #{System.get_env("STRIPE_API_KEY")}"},
         {"content-type", "application/x-www-form-urlencoded"}
       ]
-      |> maybe_put_stripe_version(Keyword.get(opts, :api_version))
+      |> maybe_put_stripe_version(Keyword.get(opts, :api_version, @default_stripe_api_version))
 
     req_opts =
       case method do

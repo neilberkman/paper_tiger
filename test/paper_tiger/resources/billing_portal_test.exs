@@ -97,6 +97,18 @@ defmodule PaperTiger.Resources.BillingPortalTest do
       session = json_response(create_conn)
       assert String.starts_with?(session["configuration"], "bpc_")
       assert session["return_url"] == "https://example.test/default"
+
+      config =
+        request(:get, "/v1/billing_portal/configurations/#{session["configuration"]}")
+        |> json_response()
+
+      assert config["features"]["subscription_pause"] == %{
+               "duration" => %{
+                 "interval_options" => [%{"interval" => "month", "interval_count" => 1}],
+                 "type" => "interval_options"
+               },
+               "enabled" => false
+             }
     end
 
     test "rejects unknown customers and configurations" do

@@ -315,17 +315,20 @@ defmodule PaperTiger.Resources.PaymentLink do
     now = PaperTiger.now()
 
     %{
+      allowed_payment_method_types: nil,
       amount_subtotal: totals.amount_subtotal,
       amount_total: totals.amount_total,
       automatic_tax: payment_link.automatic_tax,
       billing_address_collection: payment_link.billing_address_collection,
       cancel_url: nil,
+      client_secret: nil,
       completed_at: nil,
       consent_collection: payment_link.consent_collection,
       created: now,
       currency: payment_link.currency,
       customer: nil,
       customer_creation: payment_link.customer_creation,
+      excluded_payment_method_types: nil,
       expires_at: now + 86_400,
       id: session_id,
       line_items: line_items,
@@ -339,6 +342,7 @@ defmodule PaperTiger.Resources.PaymentLink do
       payment_method_types: payment_link.payment_method_types || ["card"],
       payment_status: "unpaid",
       phone_number_collection: payment_link.phone_number_collection,
+      return_url: nil,
       setup_intent: nil,
       shipping_address_collection: payment_link.shipping_address_collection,
       shipping_options: payment_link.shipping_options || [],
@@ -347,7 +351,7 @@ defmodule PaperTiger.Resources.PaymentLink do
       subscription: nil,
       success_url: success_url(payment_link),
       total_details: payment_link.total_details,
-      ui_mode: "hosted",
+      ui_mode: "hosted_page",
       url: checkout_url(session_id)
     }
   end
