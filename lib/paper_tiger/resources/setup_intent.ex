@@ -626,7 +626,11 @@ defmodule PaperTiger.Resources.SetupIntent do
   end
 
   defp build_setup_intent(params) do
+    allowed_payment_method_types = Map.get(params, :allowed_payment_method_types)
+    payment_method_types = Map.get(params, :payment_method_types) || allowed_payment_method_types || ["card"]
+
     %{
+      allowed_payment_method_types: allowed_payment_method_types,
       application: Map.get(params, :application),
       attach_to_self: Map.get(params, :attach_to_self, false),
       automatic_payment_methods: Map.get(params, :automatic_payment_methods),
@@ -649,7 +653,7 @@ defmodule PaperTiger.Resources.SetupIntent do
       payment_method: Map.get(params, :payment_method),
       payment_method_configuration_details: nil,
       payment_method_options: Map.get(params, :payment_method_options),
-      payment_method_types: Map.get(params, :payment_method_types, ["card"]),
+      payment_method_types: payment_method_types,
       return_url: Map.get(params, :return_url),
       single_use_mandate: nil,
       status: initial_status(params),

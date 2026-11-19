@@ -33,6 +33,44 @@ defmodule PaperTiger.Resources.CheckoutSessionTest do
       assert session["mode"] == "payment"
       assert session["success_url"] == "https://example.com/success"
       assert session["cancel_url"] == "https://example.com/cancel"
+      assert session["ui_mode"] == "hosted_page"
+      assert session["client_secret"] == nil
+      assert is_binary(session["url"])
+    end
+
+    test "creates an embedded_page session without success_url or cancel_url" do
+      params = %{
+        "allowed_payment_method_types" => ["card", "us_bank_account"],
+        "excluded_payment_method_types" => ["klarna"],
+        "mode" => "payment",
+        "return_url" => "https://example.com/return",
+        "ui_mode" => "embedded_page"
+      }
+
+      conn = request(:post, "/v1/checkout/sessions", params)
+
+      assert conn.status == 200
+      session = json_response(conn)
+      assert session["ui_mode"] == "embedded_page"
+      assert session["return_url"] == "https://example.com/return"
+      assert is_nil(session["url"])
+      assert String.starts_with?(session["client_secret"], "#{session["id"]}_secret_")
+      assert session["allowed_payment_method_types"] == ["card", "us_bank_account"]
+      assert session["excluded_payment_method_types"] == ["klarna"]
+      assert session["payment_method_types"] == ["card", "us_bank_account"]
+    end
+
+    test "creates a hosted_page session without cancel_url" do
+      conn =
+        request(:post, "/v1/checkout/sessions", %{
+          "mode" => "payment",
+          "success_url" => "https://example.com/success"
+        })
+
+      assert conn.status == 200
+      session = json_response(conn)
+      assert session["ui_mode"] == "hosted_page"
+      assert is_nil(session["cancel_url"])
     end
 
     test "creates a subscription mode session" do

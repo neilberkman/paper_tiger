@@ -29,10 +29,10 @@ defmodule PaperTiger.Contract.PaymentIntentChainTest do
       pm_id = "pm_card_visa"
 
       pi_params = %{
+        "allowed_payment_method_types" => ["card"],
         "amount" => 2500,
         "currency" => "usd",
-        "payment_method" => pm_id,
-        "payment_method_types" => ["card"]
+        "payment_method" => pm_id
       }
 
       {:ok, pi} = TestClient.create_payment_intent(pi_params)
@@ -85,11 +85,11 @@ defmodule PaperTiger.Contract.PaymentIntentChainTest do
     test "manual capture supports final partial capture and captured charge state" do
       {:ok, pi} =
         TestClient.create_payment_intent(%{
+          "allowed_payment_method_types" => ["card"],
           "amount" => 2500,
           "capture_method" => "manual",
           "currency" => "usd",
-          "payment_method" => "pm_card_visa",
-          "payment_method_types" => ["card"]
+          "payment_method" => "pm_card_visa"
         })
 
       {:ok, authorized} =

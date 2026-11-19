@@ -1025,6 +1025,7 @@ defmodule PaperTiger.ContractTest do
     test "confirms a card setup intent and records a setup attempt" do
       {:ok, setup_intent} =
         TestClient.create_setup_intent(%{
+          "automatic_payment_methods" => %{"allow_redirects" => "never", "enabled" => true},
           "payment_method" => "pm_card_visa"
         })
 
@@ -1468,7 +1469,8 @@ defmodule PaperTiger.ContractTest do
       assert String.starts_with?(promotion_code["id"], "promo_")
       assert promotion_code["active"] == true
       assert promotion_code["code"] == code
-      assert promotion_code["coupon"]["id"] == coupon["id"]
+      assert promotion_code["promotion"]["type"] == "coupon"
+      assert promotion_code["promotion"]["coupon"] == coupon["id"]
 
       {:ok, retrieved} = TestClient.get_promotion_code(promotion_code["id"])
       assert retrieved["id"] == promotion_code["id"]
@@ -1798,15 +1800,6 @@ defmodule PaperTiger.ContractTest do
     test "sends a finalized send_invoice invoice" do
       {:ok, customer} = TestClient.create_customer(%{"email" => "send-invoice@example.com"})
 
-      if TestClient.real_stripe?() do
-        {:ok, _item} =
-          TestClient.create_invoice_item(%{
-            "amount" => 1500,
-            "currency" => "usd",
-            "customer" => customer["id"]
-          })
-      end
-
       {:ok, invoice} =
         TestClient.create_invoice(%{
           "auto_advance" => false,
@@ -1815,15 +1808,13 @@ defmodule PaperTiger.ContractTest do
           "days_until_due" => 30
         })
 
-      if !TestClient.real_stripe?() do
-        {:ok, _item} =
-          TestClient.create_invoice_item(%{
-            "amount" => 1500,
-            "currency" => "usd",
-            "customer" => customer["id"],
-            "invoice" => invoice["id"]
-          })
-      end
+      {:ok, _item} =
+        TestClient.create_invoice_item(%{
+          "amount" => 1500,
+          "currency" => "usd",
+          "customer" => customer["id"],
+          "invoice" => invoice["id"]
+        })
 
       {:ok, finalized} = TestClient.finalize_invoice(invoice["id"])
       assert finalized["status"] == "open"
@@ -1844,15 +1835,6 @@ defmodule PaperTiger.ContractTest do
     test "marks a finalized invoice uncollectible" do
       {:ok, customer} = TestClient.create_customer(%{"email" => "mark-uncollectible@example.com"})
 
-      if TestClient.real_stripe?() do
-        {:ok, _item} =
-          TestClient.create_invoice_item(%{
-            "amount" => 2200,
-            "currency" => "usd",
-            "customer" => customer["id"]
-          })
-      end
-
       {:ok, invoice} =
         TestClient.create_invoice(%{
           "auto_advance" => false,
@@ -1861,15 +1843,13 @@ defmodule PaperTiger.ContractTest do
           "days_until_due" => 30
         })
 
-      if !TestClient.real_stripe?() do
-        {:ok, _item} =
-          TestClient.create_invoice_item(%{
-            "amount" => 2200,
-            "currency" => "usd",
-            "customer" => customer["id"],
-            "invoice" => invoice["id"]
-          })
-      end
+      {:ok, _item} =
+        TestClient.create_invoice_item(%{
+          "amount" => 2200,
+          "currency" => "usd",
+          "customer" => customer["id"],
+          "invoice" => invoice["id"]
+        })
 
       {:ok, finalized} = TestClient.finalize_invoice(invoice["id"])
       assert finalized["status"] == "open"

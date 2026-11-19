@@ -121,6 +121,13 @@ defmodule PaperTiger.Resources.BillingPortalConfiguration do
         mode: "at_period_end",
         proration_behavior: "none"
       },
+      subscription_pause: %{
+        duration: %{
+          interval_options: [%{interval: "month", interval_count: 1}],
+          type: "interval_options"
+        },
+        enabled: false
+      },
       subscription_update: %{
         default_allowed_updates: [],
         enabled: false,

@@ -1,0 +1,71 @@
+name: Publish to Hex
+
+# Publishes the package and its documentation to Hex from a clean checkout of
+# the release tag.
+#
+# Hex trusted publishing: hex.pm holds a workload identity for this repository,
+# this workflow file (`release.yml`), and the `release` environment. With no
+# HEX_API_KEY set, `mix hex.publish` exchanges the job's GitHub OIDC token for
+# a short-lived token scoped solely to publishing `paper_tiger`.
+#
+# The `release` environment accepts only tags matching `v*`, so a branch or
+# pull request cannot obtain the token.
+
+on:
+  push:
+    tags:
+      - "v*"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  gate:
+    uses: ./.github/workflows/ci.yml
+
+  publish:
+    name: Publish package and docs
+    needs: gate
+    runs-on: ubuntu-latest
+    environment: release
+    permissions:
+      contents: read
+      id-token: write
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Verify release tag matches mix.exs version
+        shell: bash
+        run: |
+          test "$GITHUB_REF_TYPE" = "tag"
+          version="$(awk -F '"' '/@version/ { print $2; exit }' mix.exs)"
+          echo "tag=${GITHUB_REF_NAME} mix_version=${version}"
+          test "v${version}" = "$GITHUB_REF_NAME"
+
+      - name: Setup Elixir
+        uses: erlef/setup-beam@v1
+        with:
+          otp-version: "29.1.2"
+          elixir-version: "1.20.5"
+
+      - name: Install pinned Hex and Rebar
+        run: |
+          mix local.hex 2.7.0 --force
+          mix local.rebar --force
+
+      - name: Fetch dependencies, compile, and verify docs
+        run: |
+          mix deps.get
+          mix compile --warnings-as-errors
+          mix docs --warnings-as-errors
+
+      - name: Publish package and docs
+        shell: bash
+        run: |
+          if [ -n "${HEX_API_KEY:-}" ]; then
+            echo "HEX_API_KEY is set; this workflow publishes with its workload identity only" >&2
+            exit 1
+          fi
+          mix hex.publish --yes

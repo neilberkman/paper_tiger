@@ -5,6 +5,46 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.6.0] - 2026-11-19
+
+### Added
+
+- Stripe `2026-03-25.dahlia` and `2026-09-30.endive` (`2026-11-18.endive`)
+  resource compatibility:
+  - Checkout Sessions now support `embedded_page`, `elements`, and `form` UI
+    modes (alongside legacy `hosted`, `embedded`, and `custom`) without
+    requiring `success_url` or `cancel_url`, returning `client_secret` and
+    `return_url` (with `url: nil`) for non-hosted modes. `cancel_url` is now
+    optional for hosted modes as well.
+  - Checkout Sessions, PaymentIntents, and SetupIntents now accept and store
+    Endive's `allowed_payment_method_types` and `excluded_payment_method_types`
+    parameters, deriving `payment_method_types` from `payment_method_types` or
+    `allowed_payment_method_types` (defaulting to `["card"]`) and propagating
+    them when completing Checkout Sessions.
+  - PaymentIntents now include `payment_method_types`, `payment_method_options`,
+    and `payment_method_configuration_details` on creation.
+  - Default Billing Portal Configurations now include Endive's
+    `features.subscription_pause` block.
+
+### Changed
+
+- Checkout Sessions (including those materialized from Payment Links) now
+  default `ui_mode` to `"hosted_page"` instead of `"hosted"`, matching Stripe
+  Dahlia+.
+- Raised minimum dependency floors and refreshed lockfiles to current releases
+  with zero Hex security advisories: `bandit ~> 1.15` (resolves 2026 HTTP/2
+  and WebSocket CVEs in 1.12), `plug ~> 1.20`, `req ~> 0.7`,
+  `hackney ~> 1.24 or ~> 4.12`, `mox ~> 1.3`, `erlang_python ~> 5.0`
+  (optional), `ex_doc ~> 0.40`, `quokka ~> 2.13`, and `mix_test_watch ~> 1.4`.
+- Expanded CI quality matrix to cover Erlang/OTP 27, 28, and 29 alongside
+  Elixir 1.18.6, 1.19.7, and 1.20.5; updated `.tool-versions`, `Dockerfile`,
+  and `flake.nix`/`flake.lock` to Elixir 1.20.5 / OTP 29.1.2.
+- Updated live Stripe contract validation (`TestClient`) to pin
+  `Stripe-Version: 2026-11-18.endive` and disable stale Hackney connection
+  pooling in live validation mode.
+- Updated `clients/testcontainers-node` devDependencies (`stripe ^23.2.0`,
+  `typescript ^7.0.2`, `vitest ^5.1.1`, `@types/node ^24.0.0`) and Node 24 CI.
+
 ## [1.5.1] - 2026-09-02
 
 ### Fixed
